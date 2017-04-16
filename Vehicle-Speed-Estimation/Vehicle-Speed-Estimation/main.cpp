@@ -367,12 +367,12 @@ int main(void)
 		frame1_copy = frame1.clone();
 		frame2_copy = frame2.clone();
 
-		imshow("Original", frame1_copy);
+		//imshow("Original", frame1_copy);
 
 		cvtColor(frame1_copy, frame1_copy, CV_BGR2GRAY);
 		cvtColor(frame2_copy, frame2_copy, CV_BGR2GRAY);
 
-		imshow("Grayscale", frame1_copy);
+		//imshow("Grayscale", frame1_copy);
 
 		frame1_copy2 = frame1_copy.clone();
 		frame2_copy2 = frame2_copy.clone();
@@ -382,11 +382,11 @@ int main(void)
 
 		absdiff(frame1_copy, frame2_copy, diff);
 
-		imshow("Difference Image", diff);
+		//imshow("Difference Image", diff);
 
 		threshold(diff, thresh, 45, 255.0, CV_THRESH_BINARY);
 
-		imshow("Threshold", thresh);
+		//imshow("Threshold", thresh);
 		for (int i = 0; i < 3; i++)
 		{
 			dilate(thresh, thresh, getStructuringElement(MORPH_RECT, Size(5, 5)));
@@ -394,7 +394,7 @@ int main(void)
 
 			erode(thresh, thresh, getStructuringElement(MORPH_RECT, Size(5, 5)));
 		}
-		imshow("Morphed", thresh);
+		//imshow("Morphed", thresh);
 
 		Mat thresh_copy = thresh.clone();
 		vector<vector<Point> > contours;
@@ -402,7 +402,7 @@ int main(void)
 
 		Mat img_contour(thresh_copy.size(), CV_8UC3, Scalar(0, 0, 0));
 		drawContours(img_contour, contours, -1, Scalar(255, 255, 255), -1);
-		imshow("Contours", img_contour);
+		//imshow("Contours", img_contour);
 
 		vector<vector<Point> > contours_poly(contours.size());
 
@@ -416,7 +416,7 @@ int main(void)
 		Mat img_convexHulls(thresh_copy.size(), CV_8UC3, Scalar(0, 0, 0));
 		drawContours(img_convexHulls, convexHulls, -1, Scalar(255, 255, 255), -1);
 
-		imshow("Convex Hulls", img_convexHulls);
+		//imshow("Convex Hulls", img_convexHulls);
 
 		vector<Blob> frameBlobs;
 		for (int i = 0; i < convexHulls.size(); i++)
@@ -439,20 +439,9 @@ int main(void)
 			drawContours(imgFrameBlobs, contours, -1, Scalar(255, 255, 255), -1);
 		}
 
-		imshow("Frame Blobs", imgFrameBlobs);
+		//imshow("Frame Blobs", imgFrameBlobs);
 
-		Mat imgFrameBlobs2 = imgFrameBlobs.clone();
 
-		Mat maskedFrame1;
-		divide(255.0, imgFrameBlobs, imgFrameBlobs);
-		multiply(frame1, imgFrameBlobs, maskedFrame1);
-		imshow("Masked Frame", maskedFrame1);
-
-		Mat maskedFrame2;
-		subtract(Scalar::all(255), imgFrameBlobs2, imgFrameBlobs2);
-		divide(255.0, imgFrameBlobs2, imgFrameBlobs2);
-		multiply(frame1, imgFrameBlobs2, maskedFrame2);
-		imshow("Masked Frame Opposite", maskedFrame2);
 
 		if (first_frame)
 		{
@@ -497,7 +486,7 @@ int main(void)
 		worldPoints.push_back(Point3d(0.0, 0.0, 0.0));
 		worldPoints.push_back(Point3d(5.0, 0.0, 0.0));
 		worldPoints.push_back(Point3d(0.0, 5.0, 0.0));
-		worldPoints.push_back(Point3d(0.0, 0.0, 5.0));
+		worldPoints.push_back(Point3d(0.0, 0.0, -5.0));
 
 		vector<Point2d> imagePoints;
 
