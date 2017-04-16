@@ -113,7 +113,7 @@ class Cuboid
 {
 public:
 	Blob blob;
-	double cuboidLength, cuboidWidth, cuboidHeight, angleOfMotion, averageFlowX, averageFlowY;
+	double cuboidLength, cuboidWidth, cuboidHeight, angleOfMotion;
 	Point3d centroid, b1, b2, b3, b4, t1, t2, t3, t4;
 
 
@@ -173,9 +173,9 @@ void Cuboid::moveCuboid(double distanceX, double distanceY, double distanceZ)
 	this->centroid.y = this->centroid.y + distanceY;
 	this->centroid.z = this->centroid.z + distanceZ;
 
-	double dx = ((this->cuboidWidth / 2) * cos(this->blob.angleOfMotion)) - ((this->cuboidLength / 2) * sin(this->blob.angleOfMotion));
+	double dx = ((this->cuboidWidth / 2) * cos(this->angleOfMotion)) - ((this->cuboidLength / 2) * sin(this->angleOfMotion));
 
-	double dy = ((this->cuboidWidth / 2) * sin(this->blob.angleOfMotion)) + ((this->cuboidLength / 2) * cos(this->blob.angleOfMotion));
+	double dy = ((this->cuboidWidth / 2) * sin(this->angleOfMotion)) + ((this->cuboidLength / 2) * cos(this->angleOfMotion));
 
 	double dz = cuboidHeight / 2;
 
