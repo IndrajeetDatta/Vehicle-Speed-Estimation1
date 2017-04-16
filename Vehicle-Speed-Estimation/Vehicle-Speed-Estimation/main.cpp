@@ -341,10 +341,9 @@ int main(void)
 
 	double frame_rate = capture.get(CV_CAP_PROP_FPS);
 	double total_frame_count = capture.get(CV_CAP_PROP_FRAME_COUNT);
-	double frame_height = 484;
-	double frame_width = 640;
-	capture.set(CV_CAP_PROP_FRAME_HEIGHT, frame_height);
-	capture.set(CV_CAP_PROP_FRAME_WIDTH, frame_width);
+	double frame_height = capture.get(CV_CAP_PROP_FRAME_HEIGHT);
+	double frame_width = capture.get(CV_CAP_PROP_FRAME_WIDTH);
+
 
 	double current_position;
 
@@ -463,7 +462,7 @@ int main(void)
 
 		frame2_copy3 = frame2.clone();
 
-		Mat cuboidSimulation((int)frame_height, (int)frame_width, CV_8UC3, Scalar(0, 0, 0));
+		Mat cuboidSimulation(frame_height, frame_width, CV_8UC3, Scalar(230, 230, 230));
 
 
 		for (int i = 0; i < tracks.size(); i++)
@@ -484,9 +483,8 @@ int main(void)
 
 		vector<Point3d> worldPoints;
 		worldPoints.push_back(Point3d(0.0, 0.0, 0.0));
-		worldPoints.push_back(Point3d(5.0, 0.0, 0.0));
-		worldPoints.push_back(Point3d(0.0, 5.0, 0.0));
-		worldPoints.push_back(Point3d(0.0, 0.0, -5.0));
+		worldPoints.push_back(Point3d(10.0, 0.0, 0.0));
+		worldPoints.push_back(Point3d(0.0, 10.0, 0.0));
 
 		vector<Point2d> imagePoints;
 
@@ -494,9 +492,8 @@ int main(void)
 
 		for (int i = 0; i < imagePoints.size(); i++)
 		{
-			arrowedLine(cuboidSimulation, imagePoints[0], imagePoints[1], Scalar(255, 0.0, 0.0), 1, CV_AA);
-			arrowedLine(cuboidSimulation, imagePoints[0], imagePoints[2], Scalar(0.0, 255, 0.0), 1, CV_AA);
-			arrowedLine(cuboidSimulation, imagePoints[0], imagePoints[3], Scalar(0.0, 0.0, 255), 1, CV_AA);	
+			arrowedLine(cuboidSimulation, imagePoints[0], imagePoints[1], Scalar(0.0, 0.0, 255), 1, CV_AA);
+			arrowedLine(cuboidSimulation, imagePoints[0], imagePoints[2], Scalar(255, 0.0, 0.0), 1, CV_AA);
 		}
 
 		current_position = capture.get(CV_CAP_PROP_POS_MSEC) / 1000;
@@ -515,13 +512,20 @@ int main(void)
 
 		putText(frame2_copy3, "Vehicle Detection by Indrajeet Datta", Point(frame2_copy3.cols * 2 / 3, 10), CV_FONT_HERSHEY_SIMPLEX, 0.35, Scalar(0, 0, 255), 0.35, CV_AA);
 
+		namedWindow("Final");
+		moveWindow("Final", 0, 0);
 		imshow("Final", frame2_copy3);
+
+		namedWindow("Cuboid Simulation");
+		moveWindow("Cuboid Simulation", 640, 0);
 		imshow("Cuboid Simulation", cuboidSimulation);
 
 		frameBlobs.clear();
 
 		frame1 = frame2.clone();
 		capture.read(frame2);
+
+		frame_count++;
 		key = waitKey(1000 / frame_rate);
 
 		first_frame = false;
@@ -644,5 +648,4 @@ double static distanceBetweenPoints(Point2f point1, Point2f point2)
 
 	return(sqrt(pow(intX, 2) + pow(intY, 2)));
 }
-
 
