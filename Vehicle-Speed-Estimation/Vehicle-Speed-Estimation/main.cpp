@@ -135,9 +135,10 @@ Cuboid::Cuboid(Blob blob, double initialCuboidLength, double initialCuboidWidth,
 	this->cuboidHeight = initialCuboidHeight;
 	this->angleOfMotion = this->blob.angleOfMotion;
 
-	this->centroid.x = findGroundPlanePoint(this->blob.center, cameraMatrix, rotationVector, translationVector).x;
-	this->centroid.y = findGroundPlanePoint(this->blob.center, cameraMatrix, rotationVector, translationVector).y;
-	this->centroid.z = findGroundPlanePoint(this->blob.center, cameraMatrix, rotationVector, translationVector).z + (cuboidHeight / 2);
+	Point3d point = findGroundPlanePoint(this->blob.center, cameraMatrix, rotationVector, translationVector);
+	this->centroid.x = point.x;
+	this->centroid.y = point.y;
+	this->centroid.z = point.z + (cuboidHeight / 2);
 	double dx = ((this->cuboidWidth / 2) * cos(this->blob.angleOfMotion)) - ((this->cuboidLength / 2) * sin(this->blob.angleOfMotion));
 
 	double dy = ((this->cuboidWidth / 2) * sin(this->blob.angleOfMotion)) + ((this->cuboidLength / 2) * cos(this->blob.angleOfMotion));
@@ -309,9 +310,12 @@ void Track::drawCuboid(Mat outputFrame)
 
 vector<Track> tracks;
 int trackCount = 0;
+double initialCuboidLength = 4.620, initialCuboidWidth = 1.775, initialCuboidHeight = 1.475;
 void matchBlobs(vector<Blob> &frameBlobs, Mat currentFrame, Mat nextFrame);
 int main(void)
 {
+	cout << "Vehicle Speed Estimation Using Optical Flow And 3D Modeling" << endl; cout << endl;
+
 	FileStorage fs("parameters.yml", FileStorage::READ);
 	fs["Camera Matrix"] >> cameraMatrix;
 	fs["Distortion Coefficients"] >> distCoeffs;
@@ -319,15 +323,14 @@ int main(void)
 	fs["Translation Vector"] >> translationVector;;
 	fs["Rotation Matrix"] >> rotationMatrix;
 
-	cout << "Camera Matrix: " << cameraMatrix << endl;
-	cout << "Distortion Coefficients: " << distCoeffs << endl;
-	cout << "Rotation Vector" << rotationVector << endl;
-	cout << "Translation Vector: " << translationVector << endl;
-	cout << "Rotation Matrix: " << rotationMatrix << endl;
+	cout << "Camera Matrix: " << endl << cameraMatrix << endl; cout << endl;
+	cout << "Distortion Coefficients: " << endl << distCoeffs << endl; cout << endl;
+	cout << "Rotation Vector" << endl << rotationVector << endl; cout << endl;
+	cout << "Translation Vector: " << endl << translationVector << endl; cout << endl;
+	cout << "Rotation Matrix: " << endl << rotationMatrix << endl; cout << endl;
 
-	Mat frame1, frame2, frame1_copy, frame2_copy, frame1_copy2, frame2_copy2, frame1_copy3, frame2_copy3, diff, thresh;
-	VideoCapture capture;
-	capture.open("traffic_chiangrak.mp4");
+	Mat frame1, frame2, frame1_copy, frame2_copy, frame1_copy2, frame2_copy2, frame1_copy3, frame2_copy3, diff, thresh; 	VideoCapture capture;
+	capture.open("traffic_chiangrak.MOV");
 
 	if (!capture.isOpened())
 	{
@@ -338,15 +341,19 @@ int main(void)
 
 	double frame_rate = capture.get(CV_CAP_PROP_FPS);
 	double total_frame_count = capture.get(CV_CAP_PROP_FRAME_COUNT);
-	double frame_height = capture.get(CV_CAP_PROP_FRAME_HEIGHT);
-	double frame_width = capture.get(CV_CAP_PROP_FRAME_WIDTH);
+	double frame_height = 484;
+	double frame_width = 640;
+	capture.set(CV_CAP_PROP_FRAME_HEIGHT, frame_height);
+	capture.set(CV_CAP_PROP_FRAME_WIDTH, frame_width);
+
+	double current_position;
 
 	cout << "Video frame rate: " << frame_rate << endl;
 	cout << "Video total frame count: " << total_frame_count << endl;
 	cout << "Video frame height: " << frame_height << endl;
 	cout << "Video frame width: " << frame_width << endl;
 
-	cout << "Hello World!" << endl;
+	Size frame_size(frame_width, frame_height);
 
 
 	capture.read(frame1);
@@ -454,7 +461,7 @@ int main(void)
 				frameBlobs[i].findFeatures(frame1_copy2);
 				Track track;
 				track.addBlobToTrack(frameBlobs[i]);
-				Cuboid cuboid(frameBlobs[i], 3, 2, 2);
+				Cuboid cuboid(frameBlobs[i], initialCuboidLength, initialCuboidWidth, initialCuboidHeight);
 				track.addCuboidToTrack(cuboid);
 				tracks.push_back(track);
 			}
@@ -467,6 +474,9 @@ int main(void)
 
 		frame2_copy3 = frame2.clone();
 
+		Mat cuboidSimulation((int)frame_height, (int)frame_width, CV_8UC3, Scalar(0, 0, 0));
+
+
 		for (int i = 0; i < tracks.size(); i++)
 		{
 			if (tracks[i].noMatchCounter < 1 && tracks[i].matchCount > 10)
@@ -476,6 +486,7 @@ int main(void)
 				tracks[i].drawTrackInfo(frame2_copy3);
 				tracks[i].drawTrackFeatures(frame2_copy3);
 				tracks[i].drawCuboid(frame2_copy3);
+				tracks[i].drawCuboid(cuboidSimulation);
 			}
 			if (tracks[i].trackUpdated == false) tracks[i].noMatchCounter++;
 			if (tracks[i].noMatchCounter >= 10) tracks[i].beingTracked = false;
@@ -494,11 +505,12 @@ int main(void)
 
 		for (int i = 0; i < imagePoints.size(); i++)
 		{
-			arrowedLine(frame2_copy3, imagePoints[0], imagePoints[1], Scalar(255, 0.0, 0.0), 1, CV_AA);
-			arrowedLine(frame2_copy3, imagePoints[0], imagePoints[2], Scalar(0.0, 255, 0.0), 1, CV_AA);
-			arrowedLine(frame2_copy3, imagePoints[0], imagePoints[3], Scalar(0.0, 0.0, 255), 1, CV_AA);
-
+			arrowedLine(cuboidSimulation, imagePoints[0], imagePoints[1], Scalar(255, 0.0, 0.0), 1, CV_AA);
+			arrowedLine(cuboidSimulation, imagePoints[0], imagePoints[2], Scalar(0.0, 255, 0.0), 1, CV_AA);
+			arrowedLine(cuboidSimulation, imagePoints[0], imagePoints[3], Scalar(0.0, 0.0, 255), 1, CV_AA);	
 		}
+
+		current_position = capture.get(CV_CAP_PROP_POS_MSEC) / 1000;
 
 		rectangle(frame2_copy3, Point(8, 20), Point(120, 35), Scalar(0, 0, 0), -1, CV_AA);
 		rectangle(frame2_copy3, Point(8, 20), Point(120, 35), Scalar(0, 255, 0), 1, CV_AA);
@@ -515,6 +527,7 @@ int main(void)
 		putText(frame2_copy3, "Vehicle Detection by Indrajeet Datta", Point(frame2_copy3.cols * 2 / 3, 10), CV_FONT_HERSHEY_SIMPLEX, 0.35, Scalar(0, 0, 255), 0.35, CV_AA);
 
 		imshow("Final", frame2_copy3);
+		imshow("Cuboid Simulation", cuboidSimulation);
 
 		frameBlobs.clear();
 
@@ -583,7 +596,7 @@ void matchBlobs(vector<Blob> &frameBlobs, Mat currentFrame, Mat nextFrame)
 			frameBlobs[i].findFeatures(currentFrame);
 			Track track;
 			track.addBlobToTrack(frameBlobs[i]);
-			Cuboid cuboid(frameBlobs[i], 3, 2, 2);
+			Cuboid cuboid(frameBlobs[i], initialCuboidLength, initialCuboidWidth, initialCuboidHeight);
 			track.addCuboidToTrack(cuboid);
 			tracks.push_back(track);
 		}
@@ -616,9 +629,9 @@ Point3d findGroundPlanePoint(Point2d point, Mat cameraMatrix, Mat rotationVector
 	Mat matPoint3D;
 	divide(w, matPoint3Dw, matPoint3D);
 	Point3f point3D;
-	point3D.x = matPoint3D.at<double>(0, 0);
-	point3D.y = matPoint3D.at<double>(1, 0);
-	point3D.z = 0;
+	point3D.x = -1 * matPoint3D.at<double>(0, 0);
+	point3D.y = -1 * matPoint3D.at<double>(1, 0);
+	point3D.z = 0.0;
 	return point3D;
 }////
 
