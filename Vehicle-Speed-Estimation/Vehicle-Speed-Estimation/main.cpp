@@ -343,7 +343,7 @@ int main(void)
 	double total_frame_count = capture.get(CV_CAP_PROP_FRAME_COUNT);
 	double frame_height = capture.get(CV_CAP_PROP_FRAME_HEIGHT);
 	double frame_width = capture.get(CV_CAP_PROP_FRAME_WIDTH);
-	
+
 
 	double current_position;
 
@@ -648,5 +648,4 @@ double static distanceBetweenPoints(Point2f point1, Point2f point2)
 
 	return(sqrt(pow(intX, 2) + pow(intY, 2)));
 }
-
 
