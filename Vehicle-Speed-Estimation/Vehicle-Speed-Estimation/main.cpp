@@ -280,6 +280,7 @@ void Track::drawTrackInfo(Mat outputFrame)
 void Track::drawCuboid(Mat outputFrame)
 {
 	vector<Point3d> vertices;
+	vertices.push_back(this->cuboids.back().centroid);
 	vertices.push_back(this->cuboids.back().b1);
 	vertices.push_back(this->cuboids.back().b2);
 	vertices.push_back(this->cuboids.back().b3);
@@ -292,19 +293,23 @@ void Track::drawCuboid(Mat outputFrame)
 	vector<Point2d> imagePoints;
 	projectPoints(vertices, rotationVector, translationVector, cameraMatrix, distCoeffs, imagePoints);
 
-	line(outputFrame, imagePoints[0], imagePoints[1], this->trackColor, 1, CV_AA);
+	circle(outputFrame, imagePoints[0], 2, this->trackColor, -1, CV_AA);
 	line(outputFrame, imagePoints[1], imagePoints[2], this->trackColor, 1, CV_AA);
 	line(outputFrame, imagePoints[2], imagePoints[3], this->trackColor, 1, CV_AA);
-	line(outputFrame, imagePoints[3], imagePoints[0], this->trackColor, 1, CV_AA);
-	line(outputFrame, imagePoints[4], imagePoints[5], this->trackColor, 1, CV_AA);
+	line(outputFrame, imagePoints[3], imagePoints[4], this->trackColor, 1, CV_AA);
+	line(outputFrame, imagePoints[4], imagePoints[1], this->trackColor, 1, CV_AA);
 	line(outputFrame, imagePoints[5], imagePoints[6], this->trackColor, 1, CV_AA);
 	line(outputFrame, imagePoints[6], imagePoints[7], this->trackColor, 1, CV_AA);
-	line(outputFrame, imagePoints[7], imagePoints[4], this->trackColor, 1, CV_AA);
-	line(outputFrame, imagePoints[0], imagePoints[4], this->trackColor, 1, CV_AA);
+	line(outputFrame, imagePoints[7], imagePoints[8], this->trackColor, 1, CV_AA);
+	line(outputFrame, imagePoints[8], imagePoints[5], this->trackColor, 1, CV_AA);
 	line(outputFrame, imagePoints[1], imagePoints[5], this->trackColor, 1, CV_AA);
 	line(outputFrame, imagePoints[2], imagePoints[6], this->trackColor, 1, CV_AA);
 	line(outputFrame, imagePoints[3], imagePoints[7], this->trackColor, 1, CV_AA);
+	line(outputFrame, imagePoints[4], imagePoints[8], this->trackColor, 1, CV_AA);
 
+	putText(outputFrame, "X: " + to_string(this->cuboids.back().centroid.x), Point2d(imagePoints[0].x + 3, imagePoints[0].y), CV_FONT_HERSHEY_SIMPLEX, 0.3, this->trackColor, 1, CV_AA);
+	
+	putText(outputFrame, "Y: " + to_string(this->cuboids.back().centroid.y), Point2d(imagePoints[0].x + 3, imagePoints[0].y + 8), CV_FONT_HERSHEY_SIMPLEX, 0.3, this->trackColor, 1, CV_AA);
 
 }
 
@@ -312,6 +317,7 @@ vector<Track> tracks;
 int trackCount = 0;
 double initialCuboidLength = 4.620, initialCuboidWidth = 1.775, initialCuboidHeight = 1.475;
 void matchBlobs(vector<Blob> &frameBlobs, Mat currentFrame, Mat nextFrame);
+
 int main(void)
 {
 	cout << "Vehicle Speed Estimation Using Optical Flow And 3D Modeling" << endl; cout << endl;
@@ -329,8 +335,9 @@ int main(void)
 	cout << "Translation Vector: " << endl << translationVector << endl; cout << endl;
 	cout << "Rotation Matrix: " << endl << rotationMatrix << endl; cout << endl;
 
-	Mat frame1, frame2, frame1_copy, frame2_copy, frame1_copy2, frame2_copy2, frame1_copy3, frame2_copy3, diff, thresh; 	VideoCapture capture;
-	capture.open("traffic_chiangrak.MOV");
+	Mat frame1, frame2, frame1_copy, frame2_copy, frame1_gray, frame2_gray, frame1_blur, frame2_blur, morph, frame1_copy2, frame2_copy2, frame1_copy3, frame2_copy3, diff, thresh;
+	VideoCapture capture;
+	capture.open("traffic_chiangrak2.MOV");
 
 	if (!capture.isOpened())
 	{
@@ -343,7 +350,7 @@ int main(void)
 	double total_frame_count = capture.get(CV_CAP_PROP_FRAME_COUNT);
 	double frame_height = capture.get(CV_CAP_PROP_FRAME_HEIGHT);
 	double frame_width = capture.get(CV_CAP_PROP_FRAME_WIDTH);
-
+	Size frameSize(frame_width, frame_height);
 
 	double current_position;
 
@@ -366,44 +373,42 @@ int main(void)
 		frame1_copy = frame1.clone();
 		frame2_copy = frame2.clone();
 
-		//imshow("Original", frame1_copy);
+		imshow("Original", frame1_copy);
 
-		cvtColor(frame1_copy, frame1_copy, CV_BGR2GRAY);
-		cvtColor(frame2_copy, frame2_copy, CV_BGR2GRAY);
+		cvtColor(frame1_copy, frame1_gray, CV_BGR2GRAY);
+		cvtColor(frame2_copy, frame2_gray, CV_BGR2GRAY);
 
-		//imshow("Grayscale", frame1_copy);
+		imshow("Grayscale", frame1_gray);
 
-		frame1_copy2 = frame1_copy.clone();
-		frame2_copy2 = frame2_copy.clone();
 
-		GaussianBlur(frame1_copy, frame1_copy, Size(5, 5), 0);
-		GaussianBlur(frame2_copy, frame2_copy, Size(5, 5), 0);
+		GaussianBlur(frame1_gray, frame1_blur, Size(5, 5), 0);
+		GaussianBlur(frame2_gray, frame2_blur, Size(5, 5), 0);
 
-		absdiff(frame1_copy, frame2_copy, diff);
+		imshow("Blur", frame1_blur);
 
-		//imshow("Difference Image", diff);
+		absdiff(frame1_blur, frame2_blur, diff);
 
-		threshold(diff, thresh, 45, 255.0, CV_THRESH_BINARY);
+		imshow("Difference Image", diff);
 
-		//imshow("Threshold", thresh);
-		for (int i = 0; i < 3; i++)
+		threshold(diff, thresh, 50, 255.0, CV_THRESH_BINARY);
+		
+		imshow("Threshold", thresh);
+		morph = thresh.clone();
+
+		for (int i = 0; i < 6; i++)
 		{
-			dilate(thresh, thresh, getStructuringElement(MORPH_RECT, Size(5, 5)));
-			dilate(thresh, thresh, getStructuringElement(MORPH_RECT, Size(5, 5)));
-
-			erode(thresh, thresh, getStructuringElement(MORPH_RECT, Size(5, 5)));
+			dilate(morph, morph, getStructuringElement(MORPH_RECT, Size(5, 5)));
+			dilate(morph, morph, getStructuringElement(MORPH_RECT, Size(5, 5)));
+			erode(morph, morph, getStructuringElement(MORPH_RECT, Size(5, 5)));
 		}
-		//imshow("Morphed", thresh);
+		imshow("Morphed", morph);
 
-		Mat thresh_copy = thresh.clone();
 		vector<vector<Point> > contours;
-		findContours(thresh_copy, contours, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
-
-		Mat img_contour(thresh_copy.size(), CV_8UC3, Scalar(0, 0, 0));
-		drawContours(img_contour, contours, -1, Scalar(255, 255, 255), -1);
-		//imshow("Contours", img_contour);
-
-		vector<vector<Point> > contours_poly(contours.size());
+		findContours(morph, contours, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
+			
+		Mat img_contour(frameSize, CV_8UC3, Scalar(0, 0, 0));
+		drawContours(img_contour, contours, -1, Scalar(255, 255, 255), 1, CV_AA);
+		imshow("Contours", img_contour);
 
 		vector<vector<Point> > convexHulls(contours.size());
 		for (int i = 0; i < contours.size(); i++)
@@ -412,10 +417,10 @@ int main(void)
 			convexHull(contours[i], convexHulls[i]);
 		}
 
-		Mat img_convexHulls(thresh_copy.size(), CV_8UC3, Scalar(0, 0, 0));
-		drawContours(img_convexHulls, convexHulls, -1, Scalar(255, 255, 255), -1);
+		Mat img_convexHulls(frameSize, CV_8UC3, Scalar(0, 0, 0));
+		drawContours(img_convexHulls, convexHulls, -1, Scalar(255, 255, 255), -1, CV_AA);
 
-		//imshow("Convex Hulls", img_convexHulls);
+		imshow("Convex Hulls", img_convexHulls);
 
 		vector<Blob> frameBlobs;
 		for (int i = 0; i < convexHulls.size(); i++)
@@ -430,7 +435,7 @@ int main(void)
 			}
 		}
 
-		Mat imgFrameBlobs(thresh_copy.size(), CV_8UC3, Scalar(0, 0, 0));
+		Mat imgFrameBlobs(frameSize, CV_8UC3, Scalar(0, 0, 0));
 		for (int i = 0; i < frameBlobs.size(); i++)
 		{
 			vector<vector<Point> > contours;
@@ -438,7 +443,7 @@ int main(void)
 			drawContours(imgFrameBlobs, contours, -1, Scalar(255, 255, 255), -1);
 		}
 
-		//imshow("Frame Blobs", imgFrameBlobs);
+		imshow("Frame Blobs", imgFrameBlobs);
 
 
 
@@ -446,10 +451,12 @@ int main(void)
 		{
 			for (int i = 0; i < frameBlobs.size(); i++)
 			{
-				frameBlobs[i].findFeatures(frame1_copy2);
+				frameBlobs[i].findFeatures(frame1_gray);
 				Track track;
 				track.addBlobToTrack(frameBlobs[i]);
 				Cuboid cuboid(frameBlobs[i], initialCuboidLength, initialCuboidWidth, initialCuboidHeight);
+				cout << "Y: " << cuboid.centroid.y << endl;
+				cout << "X: " << cuboid.centroid.x << endl;
 				track.addCuboidToTrack(cuboid);
 				tracks.push_back(track);
 			}
@@ -457,7 +464,7 @@ int main(void)
 
 		else
 		{
-			matchBlobs(frameBlobs, frame1_copy2, frame2_copy2);
+			matchBlobs(frameBlobs, frame1_gray, frame2_gray);
 		}
 
 		frame2_copy3 = frame2.clone();
@@ -494,6 +501,8 @@ int main(void)
 		{
 			arrowedLine(cuboidSimulation, imagePoints[0], imagePoints[1], Scalar(0.0, 0.0, 255), 1, CV_AA);
 			arrowedLine(cuboidSimulation, imagePoints[0], imagePoints[2], Scalar(255, 0.0, 0.0), 1, CV_AA);
+			arrowedLine(frame2_copy3, imagePoints[0], imagePoints[1], Scalar(0.0, 0.0, 255), 1, CV_AA);
+			arrowedLine(frame2_copy3, imagePoints[0], imagePoints[2], Scalar(255, 0.0, 0.0), 1, CV_AA);
 		}
 
 		current_position = capture.get(CV_CAP_PROP_POS_MSEC) / 1000;
@@ -526,8 +535,23 @@ int main(void)
 		capture.read(frame2);
 
 		frame_count++;
-		key = waitKey(1000 / frame_rate);
+		key = waitKey(1000/frame_rate);
 
+		switch(key)
+		{
+		case  32:	imwrite("Original.jpg", frame1);
+					imwrite("Grayscale.jpg", frame1_gray);
+					imwrite("Difference.jpg", diff);
+					imwrite("Blurred.jpg", frame1_blur);
+					imwrite("Threhold.jpg", thresh);
+					imwrite("Morphed.jpg", morph);
+					imwrite("Contours.jpg", img_contour);
+					imwrite("ConvexHulls.jpg", img_convexHulls);
+					imwrite("Blobs.jpg", imgFrameBlobs);
+					imwrite("CuboidSimulation.jpg", cuboidSimulation);
+					imwrite("Final.jpg", frame2_copy3); continue;
+		case 27:	return 0;
+		}
 		first_frame = false;
 	}
 	_getch();
@@ -590,6 +614,8 @@ void matchBlobs(vector<Blob> &frameBlobs, Mat currentFrame, Mat nextFrame)
 			Track track;
 			track.addBlobToTrack(frameBlobs[i]);
 			Cuboid cuboid(frameBlobs[i], initialCuboidLength, initialCuboidWidth, initialCuboidHeight);
+			cout << "Y: " << cuboid.centroid.y << endl;
+			cout << "X: " << cuboid.centroid.x << endl;
 			track.addCuboidToTrack(cuboid);
 			tracks.push_back(track);
 		}
@@ -622,8 +648,8 @@ Point3d findGroundPlanePoint(Point2d point, Mat cameraMatrix, Mat rotationVector
 	Mat matPoint3D;
 	divide(w, matPoint3Dw, matPoint3D);
 	Point3f point3D;
-	point3D.x = -1 * matPoint3D.at<double>(0, 0);
-	point3D.y = -1 * matPoint3D.at<double>(1, 0);
+	point3D.x = matPoint3D.at<double>(0, 0);
+	point3D.y = matPoint3D.at<double>(1, 0);
 	point3D.z = 0.0;
 	return point3D;
 }////
@@ -648,4 +674,3 @@ double static distanceBetweenPoints(Point2f point1, Point2f point2)
 
 	return(sqrt(pow(intX, 2) + pow(intY, 2)));
 }
-
