@@ -10,7 +10,7 @@ Mat cameraMatrix, distCoeffs, rotationVector, translationVector, rotationMatrix,
 
 double distanceBetweenPoints(Point2f point1, Point point2);
 double distanceBetweenPoints(Point2f point1, Point2f point2);
-Point3d findGroundPlanePoint(Point2d point, Mat cameraMatrix, Mat rotationVector, Mat translationVector);
+Point3f findWorldPoint(Point2f imagePoint, Mat cameraMatrix, Mat rotationMatrix, Mat translationVector);
 
 class Blob
 {
@@ -72,7 +72,7 @@ void Blob::findFeatures(Mat currentFrame)
 	this->featurePoints = featurePoints;
 	for (int i = 0; i < this->featurePoints.size(); i++)
 	{
-		Point3d point = findGroundPlanePoint(Point2d(featurePoints[i]), cameraMatrix, rotationVector, translationVector);
+		Point3f point = findWorldPoint(Point2f(featurePoints[i]), cameraMatrix, rotationMatrix, translationVector);
 		this->groundPlaneFlowTails.push_back(point);
 	}
 
@@ -87,7 +87,7 @@ void Blob::findFlow(Mat currentFrame, Mat nextFrame)
 
 	for (int i = 0; i < featurePoints.size(); i++)
 	{
-		Point3d point = findGroundPlanePoint(Point2d(flowPoints[i]), cameraMatrix, rotationVector, translationVector);
+		Point3f point = findWorldPoint(Point2f(flowPoints[i]), cameraMatrix, rotationMatrix, translationVector);
 		this->groundPlaneFlowHeads.push_back(point);
 	}
 
@@ -135,7 +135,7 @@ Cuboid::Cuboid(Blob blob, double initialCuboidLength, double initialCuboidWidth,
 	this->cuboidHeight = initialCuboidHeight;
 	this->angleOfMotion = this->blob.angleOfMotion;
 
-	Point3d point = findGroundPlanePoint(this->blob.center, cameraMatrix, rotationVector, translationVector);
+	Point3f point = findWorldPoint(this->blob.center, cameraMatrix, rotationMatrix, translationVector);
 	this->centroid.x = point.x;
 	this->centroid.y = point.y;
 	this->centroid.z = point.z + (cuboidHeight / 2);
@@ -622,37 +622,26 @@ void matchBlobs(vector<Blob> &frameBlobs, Mat currentFrame, Mat nextFrame)
 	}
 }
 ////////////////////////////// ~~ METHOD FOR CALCULATING 3D POINT FROM 2D POINT ~~  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-Point3d findGroundPlanePoint(Point2d point, Mat cameraMatrix, Mat rotationVector, Mat translationVector)
+Point3f findWorldPoint(Point2f imagePoint, Mat cameraMatrix, Mat rotationMatrix, Mat translationVector)
 {
-	Mat RT;
-	hconcat(rotationVector, translationVector, RT);
-	Mat projectionMatrix = cameraMatrix * RT;
+	Mat imagePointHV = Mat::ones(3, 1, cv::DataType<double>::type);
+	imagePointHV.at<double>(0, 0) = imagePoint.x;
+	imagePointHV.at<double>(1, 0) = imagePoint.y;
+	Mat tempMat, tempMat2;
+	double s;
+	tempMat = rotationMatrix.inv() * cameraMatrix.inv() * imagePointHV;
+	tempMat2 = rotationMatrix.inv() * translationVector;
+	s = tempMat2.at<double>(2, 0);
+	s /= tempMat.at<double>(2, 0);
+	Mat worldPointHV = rotationMatrix.inv() * (s * cameraMatrix.inv() * imagePointHV - translationVector);
 
-	double p11 = projectionMatrix.at<double>(0, 0),
-		p12 = projectionMatrix.at<double>(0, 1),
-		p14 = projectionMatrix.at<double>(0, 3),
-		p21 = projectionMatrix.at<double>(1, 0),
-		p22 = projectionMatrix.at<double>(1, 1),
-		p24 = projectionMatrix.at<double>(1, 3),
-		p31 = projectionMatrix.at<double>(2, 0),
-		p32 = projectionMatrix.at<double>(2, 1),
-		p34 = projectionMatrix.at<double>(2, 3);
+	Point3f worldPoint;
+	worldPoint.x = worldPointHV.at<double>(0, 0);
+	worldPoint.y = worldPointHV.at<double>(1, 0);
+	worldPoint.z = 0.0;
 
-	Mat homographyMatrix = (Mat_<double>(3, 3) << p11, p12, p14, p21, p22, p24, p31, p32, p34);
-
-	Mat inverseHomographyMatrix = homographyMatrix.inv();
-
-	Mat matPoint2D = (Mat_<double>(3, 1) << point.x, point.y, 1);
-	Mat matPoint3Dw = inverseHomographyMatrix*matPoint2D;
-	double w = matPoint3Dw.at<double>(2, 0);
-	Mat matPoint3D;
-	divide(w, matPoint3Dw, matPoint3D);
-	Point3f point3D;
-	point3D.x = matPoint3D.at<double>(0, 0);
-	point3D.y = matPoint3D.at<double>(1, 0);
-	point3D.z = 0.0;
-	return point3D;
-}////
+	return worldPoint;
+}
 
  //   ~~ METHOD FOR FINDING DISTANCE BETWEEN TWO IMAGE POINTS ~~   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 double distanceBetweenPoints(Point2f point1, Point point2)
