@@ -19,7 +19,7 @@ public:
 	Rect Bounding_Rectangle;
 	RotatedRect Rotated_Rect;
 	double area, width, height, diagonalSize, aspectRatio, averageFlowDistanceX, averageFlowDistanceY, angleOfMotion;
-	Point topRightCorner, bottomRightCorner;
+	Point bottomLeftCorner, topRightCorner, bottomRightCorner;
 	Point2d center;
 	vector<Point3d> groundPlaneFlowTails, groundPlaneFlowHeads;
 
@@ -53,6 +53,10 @@ Blob::Blob(vector<Point> contour)
 	this->topRightCorner = Point(this->Bounding_Rectangle.x, this->Bounding_Rectangle.y);
 	this->center.x = this->Bounding_Rectangle.x + (this->Bounding_Rectangle.width / 2);
 	this->center.y = this->Bounding_Rectangle.y + (this->Bounding_Rectangle.height / 2);
+
+	this->bottomLeftCorner.x = this->Bounding_Rectangle.x;
+	this->bottomLeftCorner.y = this->Bounding_Rectangle.y + this->Bounding_Rectangle.height;
+
 	this->bottomRightCorner.x = this->Bounding_Rectangle.x + this->Bounding_Rectangle.width;
 	this->bottomRightCorner.y = this->Bounding_Rectangle.y + this->Bounding_Rectangle.height;
 
@@ -114,7 +118,7 @@ class Cuboid
 public:
 	Blob blob;
 	double cuboidLength, cuboidWidth, cuboidHeight, angleOfMotion;
-	Point3d centroid, b1, b2, b3, b4, t1, t2, t3, t4;
+	Point3d bottomLeftCorner, b1, b2, b3, b4, t1, t2, t3, t4;
 
 
 	void setOptimizedCuboidParams(double length, double width, double height, double angleOfMotion);
@@ -135,25 +139,18 @@ Cuboid::Cuboid(Blob blob, double initialCuboidLength, double initialCuboidWidth,
 	this->cuboidHeight = initialCuboidHeight;
 	this->angleOfMotion = this->blob.angleOfMotion;
 
-	Point3f point = findWorldPoint(this->blob.center, cameraMatrix, rotationMatrix, translationVector);
-	this->centroid.x = point.x;
-	this->centroid.y = point.y;
-	this->centroid.z = point.z + (cuboidHeight / 2);
-	double dx = ((this->cuboidWidth / 2) * cos(this->blob.angleOfMotion)) - ((this->cuboidLength / 2) * sin(this->blob.angleOfMotion));
+	Point3f point = findWorldPoint(this->blob.bottomLeftCorner, cameraMatrix, rotationMatrix, translationVector);
+	this->bottomLeftCorner = point;
 
-	double dy = ((this->cuboidWidth / 2) * sin(this->blob.angleOfMotion)) + ((this->cuboidLength / 2) * cos(this->blob.angleOfMotion));
+	this->b1 = Point3d(this->bottomLeftCorner.x, this->bottomLeftCorner.y, 0.0);
+	this->b2 = Point3d(this->bottomLeftCorner.x + (this->cuboidWidth * cos(this->angleOfMotion)), this->bottomLeftCorner.y - (this->cuboidWidth* sin(this->angleOfMotion)), 0.0);
+	this->b3 = Point3d(this->bottomLeftCorner.x + (this->cuboidLength * sin(this->angleOfMotion)), this->bottomLeftCorner.y + (this->cuboidLength * cos(this->angleOfMotion)), 0.0);
+	this->b4 = Point3d(this->bottomLeftCorner.x + (this->cuboidLength * sin(this->angleOfMotion)) + (this->cuboidWidth * cos(this->angleOfMotion)), this->bottomLeftCorner.y + (this->cuboidLength * cos(this->angleOfMotion)) +(this->cuboidWidth * sin(this->angleOfMotion)), 0.0);
 
-	double dz = cuboidHeight / 2;
-
-	this->b1 = Point3d(this->centroid.x + dx, this->centroid.y + dy, this->centroid.z - dz);
-	this->b2 = Point3d(this->centroid.x + dx, this->centroid.y - dy, this->centroid.z - dz);
-	this->b3 = Point3d(this->centroid.x - dx, this->centroid.y - dy, this->centroid.z - dz);
-	this->b4 = Point3d(this->centroid.x - dx, this->centroid.y + dy, this->centroid.z - dz);
-
-	this->t1 = Point3d(this->centroid.x + dx, this->centroid.y + dy, this->centroid.z + dz);
-	this->t2 = Point3d(this->centroid.x + dx, this->centroid.y - dy, this->centroid.z + dz);
-	this->t3 = Point3d(this->centroid.x - dx, this->centroid.y - dy, this->centroid.z + dz);
-	this->t4 = Point3d(this->centroid.x - dx, this->centroid.y + dy, this->centroid.z + dz);
+	this->t1 = Point3d(this->bottomLeftCorner.x, this->bottomLeftCorner.y, this->cuboidHeight);
+	this->t2 = Point3d(this->bottomLeftCorner.x + (this->cuboidWidth * cos(this->angleOfMotion)), this->bottomLeftCorner.y - (this->cuboidWidth* sin(this->angleOfMotion)), this->cuboidHeight);
+	this->t3 = Point3d(this->bottomLeftCorner.x + (this->cuboidLength * sin(this->angleOfMotion)), this->bottomLeftCorner.y + (this->cuboidLength * cos(this->angleOfMotion)), this->cuboidHeight);
+	this->t4 = Point3d(this->bottomLeftCorner.x + (this->cuboidLength * sin(this->angleOfMotion)) + (this->cuboidWidth * cos(this->angleOfMotion)), this->bottomLeftCorner.y + (this->cuboidLength * cos(this->angleOfMotion)) + (this->cuboidWidth * sin(this->angleOfMotion)), this->cuboidHeight);
 
 }
 
@@ -169,25 +166,19 @@ void Cuboid::setOptimizedCuboidParams(double length, double width, double height
 void Cuboid::moveCuboid(double distanceX, double distanceY, double distanceZ)
 {
 
-	this->centroid.x = this->centroid.x + distanceX;
-	this->centroid.y = this->centroid.y + distanceY;
-	this->centroid.z = this->centroid.z + distanceZ;
+	this->bottomLeftCorner.x = this->bottomLeftCorner.x + distanceX;
+	this->bottomLeftCorner.y = this->bottomLeftCorner.y + distanceY;
+	this->bottomLeftCorner.z = this->bottomLeftCorner.z + distanceZ;
 
-	double dx = ((this->cuboidWidth / 2) * cos(this->angleOfMotion)) - ((this->cuboidLength / 2) * sin(this->angleOfMotion));
+	this->b1 = Point3d(this->bottomLeftCorner.x, this->bottomLeftCorner.y, 0.0);
+	this->b2 = Point3d(this->bottomLeftCorner.x + (this->cuboidWidth * cos(this->angleOfMotion)), this->bottomLeftCorner.y - (this->cuboidWidth* sin(this->angleOfMotion)), 0.0);
+	this->b3 = Point3d(this->bottomLeftCorner.x + (this->cuboidLength * sin(this->angleOfMotion)), this->bottomLeftCorner.y + (this->cuboidLength * cos(this->angleOfMotion)), 0.0);
+	this->b4 = Point3d(this->bottomLeftCorner.x + (this->cuboidLength * sin(this->angleOfMotion)) + (this->cuboidWidth * cos(this->angleOfMotion)), this->bottomLeftCorner.y + (this->cuboidLength * cos(this->angleOfMotion)) + (this->cuboidWidth * sin(this->angleOfMotion)), 0.0);
 
-	double dy = ((this->cuboidWidth / 2) * sin(this->angleOfMotion)) + ((this->cuboidLength / 2) * cos(this->angleOfMotion));
-
-	double dz = cuboidHeight / 2;
-
-	this->b1 = Point3d(this->centroid.x + dx, this->centroid.y + dy, this->centroid.z - dz);
-	this->b2 = Point3d(this->centroid.x + dx, this->centroid.y - dy, this->centroid.z - dz);
-	this->b3 = Point3d(this->centroid.x - dx, this->centroid.y - dy, this->centroid.z - dz);
-	this->b4 = Point3d(this->centroid.x - dx, this->centroid.y + dy, this->centroid.z - dz);
-
-	this->t1 = Point3d(this->centroid.x + dx, this->centroid.y + dy, this->centroid.z + dz);
-	this->t2 = Point3d(this->centroid.x + dx, this->centroid.y - dy, this->centroid.z + dz);
-	this->t3 = Point3d(this->centroid.x - dx, this->centroid.y - dy, this->centroid.z + dz);
-	this->t4 = Point3d(this->centroid.x - dx, this->centroid.y + dy, this->centroid.z + dz);
+	this->t1 = Point3d(this->bottomLeftCorner.x, this->bottomLeftCorner.y, this->cuboidHeight);
+	this->t2 = Point3d(this->bottomLeftCorner.x + (this->cuboidWidth * cos(this->angleOfMotion)), this->bottomLeftCorner.y - (this->cuboidWidth* sin(this->angleOfMotion)), this->cuboidHeight);
+	this->t3 = Point3d(this->bottomLeftCorner.x + (this->cuboidLength * sin(this->angleOfMotion)), this->bottomLeftCorner.y + (this->cuboidLength * cos(this->angleOfMotion)), this->cuboidHeight);
+	this->t4 = Point3d(this->bottomLeftCorner.x + (this->cuboidLength * sin(this->angleOfMotion)) + (this->cuboidWidth * cos(this->angleOfMotion)), this->bottomLeftCorner.y + (this->cuboidLength * cos(this->angleOfMotion)) + (this->cuboidWidth * sin(this->angleOfMotion)), this->cuboidHeight);
 
 
 }
@@ -211,10 +202,7 @@ public:
 	void drawRects(Mat);
 	void drawTrackFeatures(Mat);
 	void drawTrack(Mat);
-	void drawTrackInfo(Mat);
 	void drawCuboid(Mat);
-
-
 
 
 };
@@ -241,7 +229,8 @@ void Track::addCuboidToTrack(Cuboid cuboid)
 }
 void Track::drawRects(Mat outputFrame)
 {
-	rectangle(outputFrame, this->blobs.back().Bounding_Rectangle, this->trackColor, 1, CV_AA);
+	rectangle(outputFrame, this->blobs.back().Bounding_Rectangle,Scalar(this->trackColor) , 1, CV_AA);
+	circle(outputFrame, this->blobs.back().bottomLeftCorner, 2, Scalar(0, 0, 255), -1, CV_AA);
 }
 
 void Track::drawTrackFeatures(Mat outputFrame)
@@ -266,21 +255,10 @@ void Track::drawTrack(Mat outputFrame)
 
 }
 
-void Track::drawTrackInfo(Mat outputFrame)
-{
-	if (this->matchCount > 5)
-	{
-		Blob blob = this->blobs.back();
-		rectangle(outputFrame, blob.topRightCorner, Point(blob.topRightCorner.x + blob.width, blob.topRightCorner.y - blob.diagonalSize / 9), this->trackColor, -1, CV_AA);
-		putText(outputFrame, "Track " + to_string(this->trackNumber), blob.topRightCorner, CV_FONT_HERSHEY_SIMPLEX, blob.width / 250, Scalar(255, 255, 255), 1, CV_AA);
-
-	}
-}
-
 void Track::drawCuboid(Mat outputFrame)
 {
 	vector<Point3d> vertices;
-	vertices.push_back(this->cuboids.back().centroid);
+	vertices.push_back(this->cuboids.back().bottomLeftCorner);
 	vertices.push_back(this->cuboids.back().b1);
 	vertices.push_back(this->cuboids.back().b2);
 	vertices.push_back(this->cuboids.back().b3);
@@ -293,25 +271,33 @@ void Track::drawCuboid(Mat outputFrame)
 	vector<Point2d> imagePoints;
 	projectPoints(vertices, rotationVector, translationVector, cameraMatrix, distCoeffs, imagePoints);
 
-	circle(outputFrame, imagePoints[0], 2, this->trackColor, -1, CV_AA);
+	circle(outputFrame, imagePoints[0], 2, Scalar(0,0,255), -1, CV_AA);
 	line(outputFrame, imagePoints[1], imagePoints[2], this->trackColor, 1, CV_AA);
-	line(outputFrame, imagePoints[2], imagePoints[3], this->trackColor, 1, CV_AA);
-	line(outputFrame, imagePoints[3], imagePoints[4], this->trackColor, 1, CV_AA);
-	line(outputFrame, imagePoints[4], imagePoints[1], this->trackColor, 1, CV_AA);
+	line(outputFrame, imagePoints[2], imagePoints[4], this->trackColor, 1, CV_AA);
+	line(outputFrame, imagePoints[4], imagePoints[3], this->trackColor, 1, CV_AA);
+	line(outputFrame, imagePoints[3], imagePoints[1], this->trackColor, 1, CV_AA);
 	line(outputFrame, imagePoints[5], imagePoints[6], this->trackColor, 1, CV_AA);
-	line(outputFrame, imagePoints[6], imagePoints[7], this->trackColor, 1, CV_AA);
-	line(outputFrame, imagePoints[7], imagePoints[8], this->trackColor, 1, CV_AA);
-	line(outputFrame, imagePoints[8], imagePoints[5], this->trackColor, 1, CV_AA);
+	line(outputFrame, imagePoints[6], imagePoints[8], this->trackColor, 1, CV_AA);
+	line(outputFrame, imagePoints[8], imagePoints[7], this->trackColor, 1, CV_AA);
+	line(outputFrame, imagePoints[7], imagePoints[5], this->trackColor, 1, CV_AA);
 	line(outputFrame, imagePoints[1], imagePoints[5], this->trackColor, 1, CV_AA);
 	line(outputFrame, imagePoints[2], imagePoints[6], this->trackColor, 1, CV_AA);
 	line(outputFrame, imagePoints[3], imagePoints[7], this->trackColor, 1, CV_AA);
 	line(outputFrame, imagePoints[4], imagePoints[8], this->trackColor, 1, CV_AA);
 
-	putText(outputFrame, "X: " + to_string(this->cuboids.back().centroid.x), Point2d(imagePoints[0].x + 3, imagePoints[0].y), CV_FONT_HERSHEY_SIMPLEX, 0.3, this->trackColor, 1, CV_AA);
+	putText(outputFrame, "X: " + to_string(this->cuboids.back().bottomLeftCorner.x), Point2d(imagePoints[0].x + 2, imagePoints[0].y+ 10), CV_FONT_HERSHEY_SIMPLEX, 0.3, this->trackColor, 1, CV_AA);
 	
-	putText(outputFrame, "Y: " + to_string(this->cuboids.back().centroid.y), Point2d(imagePoints[0].x + 3, imagePoints[0].y + 8), CV_FONT_HERSHEY_SIMPLEX, 0.3, this->trackColor, 1, CV_AA);
+	putText(outputFrame, "Y: " + to_string(this->cuboids.back().bottomLeftCorner.y), Point2d(imagePoints[0].x + 2, imagePoints[0].y + 20), CV_FONT_HERSHEY_SIMPLEX, 0.3, this->trackColor, 1, CV_AA);
+
+	if (this->matchCount > 5)
+	{
+		rectangle(outputFrame, Point(imagePoints[1].x, imagePoints[1].y + 25), Point(imagePoints[2].x, imagePoints[2].y + 40), this->trackColor, -1, CV_AA);
+		putText(outputFrame, "Track " + to_string(this->trackNumber), Point(imagePoints[1].x + 1, imagePoints[1].y + 35), CV_FONT_HERSHEY_SIMPLEX, this->cuboids.back().cuboidWidth/5, Scalar(255, 255, 255), 1, CV_AA);
+
+	}
 
 }
+
 
 vector<Track> tracks;
 int trackCount = 0;
@@ -373,26 +359,26 @@ int main(void)
 		frame1_copy = frame1.clone();
 		frame2_copy = frame2.clone();
 
-		imshow("Original", frame1_copy);
+		//imshow("Original", frame1_copy);
 
 		cvtColor(frame1_copy, frame1_gray, CV_BGR2GRAY);
 		cvtColor(frame2_copy, frame2_gray, CV_BGR2GRAY);
 
-		imshow("Grayscale", frame1_gray);
+		//imshow("Grayscale", frame1_gray);
 
 
 		GaussianBlur(frame1_gray, frame1_blur, Size(5, 5), 0);
 		GaussianBlur(frame2_gray, frame2_blur, Size(5, 5), 0);
 
-		imshow("Blur", frame1_blur);
+		//mshow("Blur", frame1_blur);
 
 		absdiff(frame1_blur, frame2_blur, diff);
 
-		imshow("Difference Image", diff);
+		//imshow("Difference Image", diff);
 
 		threshold(diff, thresh, 50, 255.0, CV_THRESH_BINARY);
 		
-		imshow("Threshold", thresh);
+		//imshow("Threshold", thresh);
 		morph = thresh.clone();
 
 		for (int i = 0; i < 6; i++)
@@ -401,14 +387,14 @@ int main(void)
 			dilate(morph, morph, getStructuringElement(MORPH_RECT, Size(5, 5)));
 			erode(morph, morph, getStructuringElement(MORPH_RECT, Size(5, 5)));
 		}
-		imshow("Morphed", morph);
+		//imshow("Morphed", morph);
 
 		vector<vector<Point> > contours;
 		findContours(morph, contours, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
 			
 		Mat img_contour(frameSize, CV_8UC3, Scalar(0, 0, 0));
 		drawContours(img_contour, contours, -1, Scalar(255, 255, 255), 1, CV_AA);
-		imshow("Contours", img_contour);
+		//imshow("Contours", img_contour);
 
 		vector<vector<Point> > convexHulls(contours.size());
 		for (int i = 0; i < contours.size(); i++)
@@ -420,7 +406,7 @@ int main(void)
 		Mat img_convexHulls(frameSize, CV_8UC3, Scalar(0, 0, 0));
 		drawContours(img_convexHulls, convexHulls, -1, Scalar(255, 255, 255), -1, CV_AA);
 
-		imshow("Convex Hulls", img_convexHulls);
+		//imshow("Convex Hulls", img_convexHulls);
 
 		vector<Blob> frameBlobs;
 		for (int i = 0; i < convexHulls.size(); i++)
@@ -443,7 +429,7 @@ int main(void)
 			drawContours(imgFrameBlobs, contours, -1, Scalar(255, 255, 255), -1);
 		}
 
-		imshow("Frame Blobs", imgFrameBlobs);
+		//imshow("Frame Blobs", imgFrameBlobs);
 
 
 
@@ -455,8 +441,8 @@ int main(void)
 				Track track;
 				track.addBlobToTrack(frameBlobs[i]);
 				Cuboid cuboid(frameBlobs[i], initialCuboidLength, initialCuboidWidth, initialCuboidHeight);
-				cout << "Y: " << cuboid.centroid.y << endl;
-				cout << "X: " << cuboid.centroid.x << endl;
+				cout << "Y: " << cuboid.bottomLeftCorner.y << endl;
+				cout << "X: " << cuboid.bottomLeftCorner.x << endl;
 				track.addCuboidToTrack(cuboid);
 				tracks.push_back(track);
 			}
@@ -478,7 +464,6 @@ int main(void)
 			{
 				tracks[i].drawRects(frame2_copy3);
 				tracks[i].drawTrack(frame2_copy3);
-				tracks[i].drawTrackInfo(frame2_copy3);
 				tracks[i].drawTrackFeatures(frame2_copy3);
 				tracks[i].drawCuboid(frame2_copy3);
 				tracks[i].drawCuboid(cuboidSimulation);
@@ -490,8 +475,9 @@ int main(void)
 
 		vector<Point3d> worldPoints;
 		worldPoints.push_back(Point3d(0.0, 0.0, 0.0));
-		worldPoints.push_back(Point3d(10.0, 0.0, 0.0));
-		worldPoints.push_back(Point3d(0.0, 10.0, 0.0));
+		worldPoints.push_back(Point3d(2.0, 0.0, 0.0));
+		worldPoints.push_back(Point3d(0.0, 2.0, 0.0));
+		worldPoints.push_back(Point3d(0.0, 0.0, 2.0));
 
 		vector<Point2d> imagePoints;
 
@@ -499,10 +485,14 @@ int main(void)
 
 		for (int i = 0; i < imagePoints.size(); i++)
 		{
-			arrowedLine(cuboidSimulation, imagePoints[0], imagePoints[1], Scalar(0.0, 0.0, 255), 1, CV_AA);
-			arrowedLine(cuboidSimulation, imagePoints[0], imagePoints[2], Scalar(255, 0.0, 0.0), 1, CV_AA);
-			arrowedLine(frame2_copy3, imagePoints[0], imagePoints[1], Scalar(0.0, 0.0, 255), 1, CV_AA);
-			arrowedLine(frame2_copy3, imagePoints[0], imagePoints[2], Scalar(255, 0.0, 0.0), 1, CV_AA);
+			arrowedLine(cuboidSimulation, imagePoints[0], imagePoints[1], Scalar(255.0, 0.0, 0.0), 1, CV_AA);
+			arrowedLine(cuboidSimulation, imagePoints[0], imagePoints[2], Scalar(0.0, 255.0, 0.0), 1, CV_AA);
+			arrowedLine(cuboidSimulation, imagePoints[0], imagePoints[3], Scalar(0.0, 0.0, 255.0), 1, CV_AA);
+
+			arrowedLine(frame2_copy3, imagePoints[0], imagePoints[1], Scalar(255.0, 0.0, 0.0), 1, CV_AA);
+			arrowedLine(frame2_copy3, imagePoints[0], imagePoints[2], Scalar(0.0, 255.0, 0.0), 1, CV_AA);
+			arrowedLine(frame2_copy3, imagePoints[0], imagePoints[3], Scalar(0.0, 0.0, 255.0), 1, CV_AA);
+
 		}
 
 		current_position = capture.get(CV_CAP_PROP_POS_MSEC) / 1000;
@@ -519,7 +509,9 @@ int main(void)
 		rectangle(frame2_copy3, Point(8, 60), Point(120, 75), Scalar(0, 255, 0), 1, CV_AA);
 		putText(frame2_copy3, "Being Tracked: " + to_string(tracks.size()), Point(10, 70), CV_FONT_HERSHEY_SIMPLEX, 0.35, Scalar(0, 255, 0), 0.35, CV_AA);
 
-		putText(frame2_copy3, "Vehicle Detection by Indrajeet Datta", Point(frame2_copy3.cols * 2 / 3, 10), CV_FONT_HERSHEY_SIMPLEX, 0.35, Scalar(0, 0, 255), 0.35, CV_AA);
+		putText(frame2_copy3, "Vehicle Speed Estimation Using Optical Flow And 3D Modeling by Indrajeet Datta", Point(frame2_copy3.cols * 1 / 4, 10), CV_FONT_HERSHEY_SIMPLEX, 0.35, Scalar(0, 0, 255), 0.35, CV_AA);
+
+		putText(cuboidSimulation, "Vehicle Speed Estimation Using Optical Flow And 3D Modeling by Indrajeet Datta", Point(frame2_copy3.cols * 1 / 4, 10), CV_FONT_HERSHEY_SIMPLEX, 0.35, Scalar(0, 0, 255), 0.35, CV_AA);
 
 		namedWindow("Final");
 		moveWindow("Final", 0, 0);
@@ -614,8 +606,8 @@ void matchBlobs(vector<Blob> &frameBlobs, Mat currentFrame, Mat nextFrame)
 			Track track;
 			track.addBlobToTrack(frameBlobs[i]);
 			Cuboid cuboid(frameBlobs[i], initialCuboidLength, initialCuboidWidth, initialCuboidHeight);
-			cout << "Y: " << cuboid.centroid.y << endl;
-			cout << "X: " << cuboid.centroid.x << endl;
+			cout << "Y: " << cuboid.bottomLeftCorner.y << endl;
+			cout << "X: " << cuboid.bottomLeftCorner.x << endl;
 			track.addCuboidToTrack(cuboid);
 			tracks.push_back(track);
 		}
