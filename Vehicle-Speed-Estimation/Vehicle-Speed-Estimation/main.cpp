@@ -118,7 +118,8 @@ class Cuboid
 public:
 	Blob blob;
 	double cuboidLength, cuboidWidth, cuboidHeight, angleOfMotion;
-	Point3d bottomLeftCorner, b1, b2, b3, b4, t1, t2, t3, t4;
+	Point3d bottomLeftCorner, centroid, b1, b2, b3, b4, t1, t2, t3, t4;
+	Point2d centroid_imgpt;
 
 
 	void setOptimizedCuboidParams(double length, double width, double height, double angleOfMotion);
@@ -152,6 +153,15 @@ Cuboid::Cuboid(Blob blob, double initialCuboidLength, double initialCuboidWidth,
 	this->t3 = Point3d(this->bottomLeftCorner.x + (this->cuboidLength * sin(this->angleOfMotion)), this->bottomLeftCorner.y + (this->cuboidLength * cos(this->angleOfMotion)), this->cuboidHeight);
 	this->t4 = Point3d(this->bottomLeftCorner.x + (this->cuboidLength * sin(this->angleOfMotion)) + (this->cuboidWidth * cos(this->angleOfMotion)), this->bottomLeftCorner.y + (this->cuboidLength * cos(this->angleOfMotion)) + (this->cuboidWidth * sin(this->angleOfMotion)), this->cuboidHeight);
 
+	this->centroid = Point3d((this->b1.x + this->b2.x) / 2, (this->b1.y + this->b3.y) / 2, this->cuboidHeight / 2);
+
+	vector<Point3f> object_points;
+	vector<Point2f> image_points;
+	object_points.push_back(this->centroid);
+
+	projectPoints(object_points, rotationVector, translationVector, cameraMatrix, distCoeffs, image_points);
+	this->centroid_imgpt = image_points[0];
+
 }
 
 void Cuboid::setOptimizedCuboidParams(double length, double width, double height, double angleOfMotion)
@@ -180,6 +190,14 @@ void Cuboid::moveCuboid(double distanceX, double distanceY, double distanceZ)
 	this->t3 = Point3d(this->bottomLeftCorner.x + (this->cuboidLength * sin(this->angleOfMotion)), this->bottomLeftCorner.y + (this->cuboidLength * cos(this->angleOfMotion)), this->cuboidHeight);
 	this->t4 = Point3d(this->bottomLeftCorner.x + (this->cuboidLength * sin(this->angleOfMotion)) + (this->cuboidWidth * cos(this->angleOfMotion)), this->bottomLeftCorner.y + (this->cuboidLength * cos(this->angleOfMotion)) + (this->cuboidWidth * sin(this->angleOfMotion)), this->cuboidHeight);
 
+	this->centroid = Point3d((this->b1.x + this->b2.x) / 2, (this->b1.y + this->b3.y) / 2, this->cuboidHeight / 2);
+
+	vector<Point3f> object_points;
+	vector<Point2f> image_points;
+	object_points.push_back(this->centroid);
+
+	projectPoints(object_points, rotationVector, translationVector, cameraMatrix, distCoeffs, image_points);
+	this->centroid_imgpt = image_points[0];
 
 }
 class Track
@@ -194,8 +212,6 @@ public:
 	int matchCount = 0, noMatchCounter, trackNumber;
 	vector<Blob> blobs;
 	vector<Cuboid> cuboids;
-	vector<Point> center;
-
 
 	void addBlobToTrack(Blob);
 	void addCuboidToTrack(Cuboid cuboid);
@@ -203,6 +219,7 @@ public:
 	void drawTrackFeatures(Mat);
 	void drawTrack(Mat);
 	void drawCuboid(Mat);
+	void drawCuboidInfo(Mat);
 
 
 };
@@ -225,7 +242,8 @@ void Track::addBlobToTrack(Blob blob)
 
 void Track::addCuboidToTrack(Cuboid cuboid)
 {
-	this->cuboids.push_back(cuboid);
+	this->cuboids.push_back(cuboid);	
+
 }
 void Track::drawRects(Mat outputFrame)
 {
@@ -246,6 +264,7 @@ void Track::drawTrackFeatures(Mat outputFrame)
 
 void Track::drawTrack(Mat outputFrame)
 {
+	
 	circle(outputFrame, this->blobs.back().center, 1, Scalar(0, 0, 255), -1, CV_AA);
 
 	for (int i = 0; i < min((int)this->blobs.size(), 10); i++)
@@ -257,21 +276,22 @@ void Track::drawTrack(Mat outputFrame)
 
 void Track::drawCuboid(Mat outputFrame)
 {
-	vector<Point3d> vertices;
-	vertices.push_back(this->cuboids.back().bottomLeftCorner);
-	vertices.push_back(this->cuboids.back().b1);
-	vertices.push_back(this->cuboids.back().b2);
-	vertices.push_back(this->cuboids.back().b3);
-	vertices.push_back(this->cuboids.back().b4);
-	vertices.push_back(this->cuboids.back().t1);
-	vertices.push_back(this->cuboids.back().t2);
-	vertices.push_back(this->cuboids.back().t3);
-	vertices.push_back(this->cuboids.back().t4);
+	vector<Point3d> objectPoints;
+	objectPoints.push_back(this->cuboids.back().centroid);
+	objectPoints.push_back(this->cuboids.back().b1);
+	objectPoints.push_back(this->cuboids.back().b2);
+	objectPoints.push_back(this->cuboids.back().b3);
+	objectPoints.push_back(this->cuboids.back().b4);
+	objectPoints.push_back(this->cuboids.back().t1);
+	objectPoints.push_back(this->cuboids.back().t2);
+	objectPoints.push_back(this->cuboids.back().t3);
+	objectPoints.push_back(this->cuboids.back().t4);
+	objectPoints.push_back(this->cuboids.back().centroid);
 
 	vector<Point2d> imagePoints;
-	projectPoints(vertices, rotationVector, translationVector, cameraMatrix, distCoeffs, imagePoints);
+	projectPoints(objectPoints, rotationVector, translationVector, cameraMatrix, distCoeffs, imagePoints);
 
-	circle(outputFrame, imagePoints[0], 2, Scalar(0,0,255), -1, CV_AA);
+	circle(outputFrame, imagePoints[0], 2.5, this->trackColor, -1, CV_AA);
 	line(outputFrame, imagePoints[1], imagePoints[2], this->trackColor, 1, CV_AA);
 	line(outputFrame, imagePoints[2], imagePoints[4], this->trackColor, 1, CV_AA);
 	line(outputFrame, imagePoints[4], imagePoints[3], this->trackColor, 1, CV_AA);
@@ -285,16 +305,31 @@ void Track::drawCuboid(Mat outputFrame)
 	line(outputFrame, imagePoints[3], imagePoints[7], this->trackColor, 1, CV_AA);
 	line(outputFrame, imagePoints[4], imagePoints[8], this->trackColor, 1, CV_AA);
 
-	putText(outputFrame, "X: " + to_string(this->cuboids.back().bottomLeftCorner.x), Point2d(imagePoints[0].x + 2, imagePoints[0].y+ 10), CV_FONT_HERSHEY_SIMPLEX, 0.3, this->trackColor, 1, CV_AA);
 	
-	putText(outputFrame, "Y: " + to_string(this->cuboids.back().bottomLeftCorner.y), Point2d(imagePoints[0].x + 2, imagePoints[0].y + 20), CV_FONT_HERSHEY_SIMPLEX, 0.3, this->trackColor, 1, CV_AA);
+
+}
+
+void Track::drawCuboidInfo(Mat outputFrame)
+{
+	vector<Point3d> objectPoints;
+	objectPoints.push_back(this->cuboids.back().centroid);
+	objectPoints.push_back(Point3d((this->cuboids.back().b1.x + (this->cuboids.back().cuboidWidth * this->cuboids.back().angleOfMotion) / 3), (this->cuboids.back().b1.y), (this->cuboids.back().b1.z + this->cuboids.back().cuboidHeight * 2 / 3)));
+	objectPoints.push_back(Point3d((this->cuboids.back().b1.x + (this->cuboids.back().cuboidWidth * this->cuboids.back().angleOfMotion) * 2/3), (this->cuboids.back().b1.y), (this->cuboids.back().b1.z + this->cuboids.back().cuboidHeight/ 3)));
+
+	vector<Point2d> imagePoints;
+	projectPoints(objectPoints, rotationVector, translationVector, cameraMatrix, distCoeffs, imagePoints);
+
+	circle(outputFrame, imagePoints[0], 2.5, this->trackColor, -1, CV_AA);
 
 	if (this->matchCount > 5)
 	{
-		rectangle(outputFrame, Point(imagePoints[1].x, imagePoints[1].y + 25), Point(imagePoints[2].x, imagePoints[2].y + 40), this->trackColor, -1, CV_AA);
-		putText(outputFrame, "Track " + to_string(this->trackNumber), Point(imagePoints[1].x + 1, imagePoints[1].y + 35), CV_FONT_HERSHEY_SIMPLEX, this->cuboids.back().cuboidWidth/5, Scalar(255, 255, 255), 1, CV_AA);
+		rectangle(outputFrame, imagePoints[1], imagePoints[2], this->trackColor, -1, CV_AA);
+		putText(outputFrame, to_string(this->trackNumber), imagePoints[1], CV_FONT_HERSHEY_SIMPLEX, this->cuboids.back().cuboidWidth / 5, Scalar(0.0, 0.0, 0.0), 1, CV_AA);
 
 	}
+	putText(outputFrame, "X: " + to_string(this->cuboids.back().centroid.x), Point2d(imagePoints[0].x + 5, imagePoints[0].y), CV_FONT_HERSHEY_SIMPLEX, 0.3, this->trackColor, 1, CV_AA);
+
+	putText(outputFrame, "Y: " + to_string(this->cuboids.back().centroid.y), Point2d(imagePoints[0].x + 5, imagePoints[0].y + 10), CV_FONT_HERSHEY_SIMPLEX, 0.3, this->trackColor, 1, CV_AA);
 
 }
 
@@ -304,9 +339,21 @@ int trackCount = 0;
 double initialCuboidLength = 4.620, initialCuboidWidth = 1.775, initialCuboidHeight = 1.475;
 void matchBlobs(vector<Blob> &frameBlobs, Mat currentFrame, Mat nextFrame);
 
+vector<Point2f> mouseCallBackPoints;
+
+void CallBackFunc(int event, int x, int y, int flags, void* userdata)
+{
+	if (event == EVENT_LBUTTONDOWN)
+	{
+		cout << "Clicked at: " << Point2f(x, y) << endl;
+		mouseCallBackPoints.push_back(Point2f(x, y));
+	}
+}
+
 int main(void)
 {
 	cout << "Vehicle Speed Estimation Using Optical Flow And 3D Modeling" << endl; cout << endl;
+	cout << "Github: https://github.com/IndySupertramp/Vehicle-Speed-Estimation-Using-Optical-Flow-And-3D-Modeling" << endl; cout << endl;
 
 	FileStorage fs("parameters.yml", FileStorage::READ);
 	fs["Camera Matrix"] >> cameraMatrix;
@@ -354,6 +401,7 @@ int main(void)
 	int frame_count = 1;
 	bool first_frame = true;
 	int key = 0;
+
 	while (capture.isOpened() && key != 27)
 	{
 		frame1_copy = frame1.clone();
@@ -370,7 +418,7 @@ int main(void)
 		GaussianBlur(frame1_gray, frame1_blur, Size(5, 5), 0);
 		GaussianBlur(frame2_gray, frame2_blur, Size(5, 5), 0);
 
-		//mshow("Blur", frame1_blur);
+		//imshow("Blur", frame1_blur);
 
 		absdiff(frame1_blur, frame2_blur, diff);
 
@@ -441,8 +489,6 @@ int main(void)
 				Track track;
 				track.addBlobToTrack(frameBlobs[i]);
 				Cuboid cuboid(frameBlobs[i], initialCuboidLength, initialCuboidWidth, initialCuboidHeight);
-				cout << "Y: " << cuboid.bottomLeftCorner.y << endl;
-				cout << "X: " << cuboid.bottomLeftCorner.x << endl;
 				track.addCuboidToTrack(cuboid);
 				tracks.push_back(track);
 			}
@@ -462,11 +508,13 @@ int main(void)
 		{
 			if (tracks[i].noMatchCounter < 1 && tracks[i].matchCount > 10)
 			{
-				tracks[i].drawRects(frame2_copy3);
+				//tracks[i].drawRects(frame2_copy3);
 				tracks[i].drawTrack(frame2_copy3);
 				tracks[i].drawTrackFeatures(frame2_copy3);
 				tracks[i].drawCuboid(frame2_copy3);
 				tracks[i].drawCuboid(cuboidSimulation);
+				tracks[i].drawCuboidInfo(frame2_copy3);
+				tracks[i].drawCuboidInfo(cuboidSimulation);
 			}
 			if (tracks[i].trackUpdated == false) tracks[i].noMatchCounter++;
 			if (tracks[i].noMatchCounter >= 10) tracks[i].beingTracked = false;
@@ -498,23 +546,46 @@ int main(void)
 		current_position = capture.get(CV_CAP_PROP_POS_MSEC) / 1000;
 
 		rectangle(frame2_copy3, Point(8, 20), Point(120, 35), Scalar(0, 0, 0), -1, CV_AA);
-		rectangle(frame2_copy3, Point(8, 20), Point(120, 35), Scalar(0, 255, 0), 1, CV_AA);
-		putText(frame2_copy3, "Frame Count: " + to_string(frame_count), Point(10, 30), CV_FONT_HERSHEY_SIMPLEX, 0.35, Scalar(0, 255, 0), 0.35, CV_AA);
+		putText(frame2_copy3, "Frame Count: " + to_string(frame_count), Point(10, 30), CV_FONT_HERSHEY_SIMPLEX, 0.35, Scalar(255, 255, 255), 0.35, CV_AA);
 
 		rectangle(frame2_copy3, Point(8, 40), Point(120, 55), Scalar(0, 0, 0), -1, CV_AA);
-		rectangle(frame2_copy3, Point(8, 40), Point(120, 55), Scalar(0, 255, 0), 1, CV_AA);
-		putText(frame2_copy3, "Vehicle Count: " + to_string(trackCount), Point(10, 50), CV_FONT_HERSHEY_SIMPLEX, 0.35, Scalar(0, 255, 0), 0.35, CV_AA);
+		putText(frame2_copy3, "Vehicle Count: " + to_string(trackCount), Point(10, 50), CV_FONT_HERSHEY_SIMPLEX, 0.35, Scalar(255, 255, 255), 0.35, CV_AA);
 
 		rectangle(frame2_copy3, Point(8, 60), Point(120, 75), Scalar(0, 0, 0), -1, CV_AA);
-		rectangle(frame2_copy3, Point(8, 60), Point(120, 75), Scalar(0, 255, 0), 1, CV_AA);
-		putText(frame2_copy3, "Being Tracked: " + to_string(tracks.size()), Point(10, 70), CV_FONT_HERSHEY_SIMPLEX, 0.35, Scalar(0, 255, 0), 0.35, CV_AA);
+		putText(frame2_copy3, "Being Tracked: " + to_string(tracks.size()), Point(10, 70), CV_FONT_HERSHEY_SIMPLEX, 0.35, Scalar(255, 255, 255), 0.35, CV_AA);
 
-		putText(frame2_copy3, "Vehicle Speed Estimation Using Optical Flow And 3D Modeling by Indrajeet Datta", Point(frame2_copy3.cols * 1 / 4, 10), CV_FONT_HERSHEY_SIMPLEX, 0.35, Scalar(0, 0, 255), 0.35, CV_AA);
+		rectangle(cuboidSimulation, Point(8, 20), Point(120, 35), Scalar(0, 0, 0), -1, CV_AA);
+		putText(cuboidSimulation, "Frame Count: " + to_string(frame_count), Point(10, 30), CV_FONT_HERSHEY_SIMPLEX, 0.35, Scalar(255, 255, 255), 0.35, CV_AA);
 
-		putText(cuboidSimulation, "Vehicle Speed Estimation Using Optical Flow And 3D Modeling by Indrajeet Datta", Point(frame2_copy3.cols * 1 / 4, 10), CV_FONT_HERSHEY_SIMPLEX, 0.35, Scalar(0, 0, 255), 0.35, CV_AA);
+		rectangle(cuboidSimulation, Point(8, 40), Point(120, 55), Scalar(0, 0, 0), -1, CV_AA);
+		putText(cuboidSimulation, "Vehicle Count: " + to_string(trackCount), Point(10, 50), CV_FONT_HERSHEY_SIMPLEX, 0.35, Scalar(255, 255, 255), 0.35, CV_AA);
+
+		rectangle(cuboidSimulation, Point(8, 60), Point(120, 75), Scalar(0, 0, 0), -1, CV_AA);
+		putText(cuboidSimulation, "Being Tracked: " + to_string(tracks.size()), Point(10, 70), CV_FONT_HERSHEY_SIMPLEX, 0.35, Scalar(255, 255, 255), 0.35, CV_AA);
+
+		line(frame2_copy3, Point(314, 0), Point(178, 424), Scalar(0, 0, 255), 2, CV_AA);
+		line(frame2_copy3, Point(357, 0), Point(544, 424), Scalar(0, 0, 255), 2, CV_AA);
+		line(frame2_copy3, Point(338, 0), Point(360, 424), Scalar(255, 0, 0), 1, CV_AA);
+
+		line(cuboidSimulation, Point(314, 0), Point(178, 424), Scalar(0, 0, 255), 2, CV_AA);
+		line(cuboidSimulation, Point(357, 0), Point(544, 424), Scalar(0, 0, 255), 2, CV_AA);
+		line(cuboidSimulation, Point(338, 0), Point(360, 424), Scalar(255, 0, 0), 1, CV_AA);
+
+		/*rectangle(frame2_copy3, Point((frame2_copy3.cols * 1 / 4) -3, 0), Point(frame2_copy3.cols * 4 / 4, 14), Scalar(0, 0, 0), -1, CV_AA);*/
+	
+		/*putText(frame2_copy3, "Vehicle Speed Estimation Using Optical Flow And 3D Modeling by Indrajeet Datta", Point(frame2_copy3.cols * 1 / 4, 10), CV_FONT_HERSHEY_SIMPLEX, 0.35, Scalar(255, 255, 255), 0.35, CV_AA);*/
+
+		putText(frame2_copy3, "https://github.com/IndySupertramp/Vehicle-Speed-Estimation-Using-Optical-Flow-And-3D-Modeling", Point(5, frame2_copy3.rows - 10), CV_FONT_HERSHEY_SIMPLEX, 0.3, Scalar(255, 255, 255), 0.35, CV_AA);
+
+		/*rectangle(cuboidSimulation, Point((frame2_copy3.cols * 1 / 4)-3, 0), Point(frame2_copy3.cols * 4 / 4, 14), Scalar(0, 0, 0), -1, CV_AA);*/
+
+		/*putText(cuboidSimulation, "Vehicle Speed Estimation Using Optical Flow And 3D Modeling by Indrajeet Datta", Point(frame2_copy3.cols * 1 / 4, 10), CV_FONT_HERSHEY_SIMPLEX, 0.35, Scalar(255, 255, 255), 0.35, CV_AA);*/
+
+		putText(cuboidSimulation, "https://github.com/IndySupertramp/Vehicle-Speed-Estimation-Using-Optical-Flow-And-3D-Modeling", Point(5, frame2_copy3.rows - 10), CV_FONT_HERSHEY_SIMPLEX, 0.3, Scalar(0, 0, 0), 0.35, CV_AA);
 
 		namedWindow("Final");
 		moveWindow("Final", 0, 0);
+		setMouseCallback("Final", CallBackFunc);
 		imshow("Final", frame2_copy3);
 
 		namedWindow("Cuboid Simulation");
@@ -606,8 +677,6 @@ void matchBlobs(vector<Blob> &frameBlobs, Mat currentFrame, Mat nextFrame)
 			Track track;
 			track.addBlobToTrack(frameBlobs[i]);
 			Cuboid cuboid(frameBlobs[i], initialCuboidLength, initialCuboidWidth, initialCuboidHeight);
-			cout << "Y: " << cuboid.bottomLeftCorner.y << endl;
-			cout << "X: " << cuboid.bottomLeftCorner.x << endl;
 			track.addCuboidToTrack(cuboid);
 			tracks.push_back(track);
 		}
