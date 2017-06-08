@@ -13,7 +13,7 @@ double distanceBetweenPoints(Point2f point1, Point2f point2);
 Point3f findWorldPoint(Point2f imagePoint, Mat cameraMatrix, Mat rotationMatrix, Mat translationVector);
 
 double initialCuboidLength = 5, initialCuboidWidth = 2, initialCuboidHeight = 1.5;
-Scalar WHITE = Scalar(255, 255, 255), BLACK = Scalar(0, 0, 0), BLUE = Scalar(255, 0, 0), GREEN = Scalar(0, 255, 0), RED = Scalar(0, 255, 0);
+Scalar WHITE = Scalar(255, 255, 255), BLACK = Scalar(0, 0, 0), BLUE = Scalar(255, 0, 0), GREEN = Scalar(0, 255, 0), RED = Scalar(0, 0, 255), YELLOW = Scalar(0, 255, 255), SAFFRON = Scalar(51, 153, 255), iGREEN = Scalar(8, 136, 19), iBLUE = Scalar(128, 0, 0);
 
 class Blob
 {
@@ -67,8 +67,8 @@ void Blob::findFeatures(Mat currentFrame)
 	vector<Point2f> featurePoints;
 	vector<vector<Point> > contours;
 	contours.push_back(this->contour);
-	Mat mask(currentFrame.size(), CV_8UC1, Scalar(0, 0, 0));
-	drawContours(mask, contours, -1, Scalar(255, 255, 255), -1);
+	Mat mask(currentFrame.size(), CV_8UC1, BLACK);
+	drawContours(mask, contours, -1, WHITE, -1);
 
 	goodFeaturesToTrack(currentFrame, featurePoints, 100, 0.01, 5, mask);
 	cornerSubPix(currentFrame, featurePoints, Size(10, 10), Size(-1, -1), TermCriteria(TermCriteria::MAX_ITER | TermCriteria::EPS, 20, 0.03));
@@ -218,22 +218,21 @@ Track::~Track() {};
 
 void Track::drawTrack(Mat outputFrame)
 {
-	rectangle(outputFrame, this->blobs.back().Bounding_Rectangle, this->trackColor, 1, CV_AA);
-	circle(outputFrame, this->blobs.back().bottomLeftCorner, 2, Scalar(0, 0, 255), -1, CV_AA);
-	circle(outputFrame, this->blobs.back().center, 1, this->trackColor, -1, CV_AA);
+	rectangle(outputFrame, this->blobs.back().Bounding_Rectangle, this->trackColor, 2, CV_AA);
+	circle(outputFrame, this->blobs.back().bottomLeftCorner, 2, RED, -1, CV_AA);
+	circle(outputFrame, this->blobs.back().center, 1, BLUE, -1, CV_AA);
 
 
 	for (int i = 0; i < min((int)this->blobs.size(), 10); i++)
 	{
-		line(outputFrame, this->blobs.rbegin()[i].center, this->blobs.rbegin()[i + 1].center, this->trackColor, 2, CV_AA);
-		circle(outputFrame, this->blobs.back().center, 1, Scalar(0,0,255), -1, CV_AA);
+		line(outputFrame, this->blobs.rbegin()[i].center, this->blobs.rbegin()[i + 1].center, this->trackColor, 1, CV_AA);
 	}
 	
 	if (this->matchCount > 5)
 	{
 		Blob blob = this->blobs.back();
 		rectangle(outputFrame, blob.topRightCorner, Point(blob.topRightCorner.x + blob.width, blob.topRightCorner.y - blob.diagonalSize / 9), this->trackColor, -1, CV_AA);
-		putText(outputFrame, "Vehicle: " + to_string(this->trackNumber), Point(blob.topRightCorner.x + 3, blob.topRightCorner.y - 3), CV_FONT_HERSHEY_SIMPLEX, blob.width / 250, Scalar(255, 255, 255), 1, CV_AA);
+		putText(outputFrame, "Vehicle: " + to_string(this->trackNumber), Point(blob.topRightCorner.x + 3, blob.topRightCorner.y - 3), CV_FONT_HERSHEY_SIMPLEX, blob.width / 250, WHITE, 1, CV_AA);
 		rectangle(outputFrame, Point(this->blobs.back().bottomLeftCorner.x + 3, this->blobs.back().bottomLeftCorner.y + 5), Point(this->blobs.back().bottomLeftCorner.x + 35, this->blobs.back().bottomLeftCorner.y + 30), this->trackColor, -1, CV_AA);
 		putText(outputFrame, "x: " + to_string(this->blobs.back().bottomLeftCorner.x), Point2d(this->blobs.back().bottomLeftCorner.x + 5, this->blobs.back().bottomLeftCorner.y + 15), CV_FONT_HERSHEY_SIMPLEX, 0.25, BLACK, 1, CV_AA);
 		putText(outputFrame, "y: " + to_string(this->blobs.back().bottomLeftCorner.y), Point2d(this->blobs.back().bottomLeftCorner.x + 5, this->blobs.back().bottomLeftCorner.y + 25), CV_FONT_HERSHEY_SIMPLEX, 0.25, BLACK, 1, CV_AA);
@@ -241,7 +240,7 @@ void Track::drawTrack(Mat outputFrame)
 	
 	for (int i = 0; i < this->blobs.back().featurePoints.size(); i++)
 	{
-		circle(outputFrame, this->blobs.back().featurePoints[i], 1, Scalar(0,255,0), -1, CV_AA);
+		circle(outputFrame, this->blobs.back().featurePoints[i], 1, GREEN, -1, CV_AA);
 	}
 }
 
@@ -267,26 +266,26 @@ void Track::drawCuboid(Mat outputFrame)
 	}
 	if (inFrame)
 	{
-		circle(outputFrame, imagePoints[0], 2.5, Scalar(0, 0, 255), -1, CV_AA);
-		line(outputFrame, imagePoints[1], imagePoints[2], this->trackColor, 1, CV_AA);
-		line(outputFrame, imagePoints[2], imagePoints[4], this->trackColor, 1, CV_AA);
-		line(outputFrame, imagePoints[4], imagePoints[3], this->trackColor, 1, CV_AA);
-		line(outputFrame, imagePoints[3], imagePoints[1], this->trackColor, 1, CV_AA);
-		line(outputFrame, imagePoints[5], imagePoints[6], this->trackColor, 1, CV_AA);
-		line(outputFrame, imagePoints[6], imagePoints[8], this->trackColor, 1, CV_AA);
-		line(outputFrame, imagePoints[8], imagePoints[7], this->trackColor, 1, CV_AA);
-		line(outputFrame, imagePoints[7], imagePoints[5], this->trackColor, 1, CV_AA);
-		line(outputFrame, imagePoints[1], imagePoints[5], this->trackColor, 1, CV_AA);
-		line(outputFrame, imagePoints[2], imagePoints[6], this->trackColor, 1, CV_AA);
-		line(outputFrame, imagePoints[3], imagePoints[7], this->trackColor, 1, CV_AA);
-		line(outputFrame, imagePoints[4], imagePoints[8], this->trackColor, 1, CV_AA);
-		circle(outputFrame, imagePoints[1], 2.5, Scalar(0, 0, 255), -1, CV_AA);
+		circle(outputFrame, imagePoints[0], 2.5, BLUE, -1, CV_AA);
+		line(outputFrame, imagePoints[1], imagePoints[2], this->trackColor, 2, CV_AA);
+		line(outputFrame, imagePoints[2], imagePoints[4], this->trackColor, 2, CV_AA);
+		line(outputFrame, imagePoints[4], imagePoints[3], this->trackColor, 2, CV_AA);
+		line(outputFrame, imagePoints[3], imagePoints[1], this->trackColor, 2, CV_AA);
+		line(outputFrame, imagePoints[5], imagePoints[6], this->trackColor, 2, CV_AA);
+		line(outputFrame, imagePoints[6], imagePoints[8], this->trackColor, 2, CV_AA);
+		line(outputFrame, imagePoints[8], imagePoints[7], this->trackColor, 2, CV_AA);
+		line(outputFrame, imagePoints[7], imagePoints[5], this->trackColor, 2, CV_AA);
+		line(outputFrame, imagePoints[1], imagePoints[5], this->trackColor, 2, CV_AA);
+		line(outputFrame, imagePoints[2], imagePoints[6], this->trackColor, 2, CV_AA);
+		line(outputFrame, imagePoints[3], imagePoints[7], this->trackColor, 2, CV_AA);
+		line(outputFrame, imagePoints[4], imagePoints[8], this->trackColor, 2, CV_AA);
+		circle(outputFrame, imagePoints[1], 2.5, RED, -1, CV_AA);
 
 		
 		if (this->matchCount > 5)
 		{
 			circle(outputFrame, imagePoints[9], 10, this->trackColor, -1, CV_AA);
-			putText(outputFrame, to_string(this->trackNumber), Point2d(imagePoints[9].x - 7, imagePoints[9].y + 3), CV_FONT_HERSHEY_SIMPLEX, this->cuboid.cuboidWidth / 6, Scalar(255, 255, 255), 1, CV_AA);
+			putText(outputFrame, to_string(this->trackNumber), Point2d(imagePoints[9].x - 7, imagePoints[9].y + 3), CV_FONT_HERSHEY_SIMPLEX, this->cuboid.cuboidWidth / 6, WHITE, 1, CV_AA);
 
 		}
 		rectangle(outputFrame, Point(imagePoints[1].x + 3, imagePoints[1].y + 5), Point(imagePoints[1].x + 65, imagePoints[1].y + 50), this->trackColor, -1, CV_AA);
@@ -414,8 +413,8 @@ int main(void)
 		vector<vector<Point> > contours;
 		findContours(morph, contours, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
 
-		Mat img_contour(frameSize, CV_8UC3, Scalar(0, 0, 0));
-		drawContours(img_contour, contours, -1, Scalar(255, 255, 255), 1, CV_AA);
+		Mat img_contour(frameSize, CV_8UC3, BLACK);
+		drawContours(img_contour, contours, -1, WHITE, 1, CV_AA);
 		//imshow("Contours", img_contour);
 
 		vector<vector<Point> > convexHulls(contours.size());
@@ -425,8 +424,8 @@ int main(void)
 			convexHull(contours[i], convexHulls[i]);
 		}
 
-		Mat img_convexHulls(frameSize, CV_8UC3, Scalar(0, 0, 0));
-		drawContours(img_convexHulls, convexHulls, -1, Scalar(255, 255, 255), -1, CV_AA);
+		Mat img_convexHulls(frameSize, CV_8UC3, BLACK);
+		drawContours(img_convexHulls, convexHulls, -1, WHITE, -1, CV_AA);
 
 		//imshow("Convex Hulls", img_convexHulls);
 
@@ -443,12 +442,12 @@ int main(void)
 			}
 		}
 
-		Mat imgFrameBlobs(frameSize, CV_8UC3, Scalar(0, 0, 0));
+		Mat imgFrameBlobs(frameSize, CV_8UC3, BLACK);
 		for (int i = 0; i < frameBlobs.size(); i++)
 		{
 			vector<vector<Point> > contours;
 			contours.push_back(frameBlobs[i].contour);
-			drawContours(imgFrameBlobs, contours, -1, Scalar(255, 255, 255), -1);
+			drawContours(imgFrameBlobs, contours, -1, WHITE, -1);
 		}
 
 		//imshow("Frame Blobs", imgFrameBlobs);
@@ -478,8 +477,8 @@ int main(void)
 			if (tracks[i].noMatchCount < 1 && tracks[i].matchCount > 10)
 			{
 				tracks[i].drawTrack(imgTracks);
-				drawContours(imgTracks, contours, -1, Scalar(0, 0, 255), 1, CV_AA);
-				drawContours(imgTracks, convexHulls, -1, Scalar(255, 0, 0), 1, CV_AA);
+				drawContours(imgTracks, contours, -1, RED, 1, CV_AA);
+				drawContours(imgTracks, convexHulls, -1, BLUE, 1, CV_AA);
 
 				tracks[i].drawCuboid(imgCuboids);				
 			}
@@ -490,9 +489,9 @@ int main(void)
 
 		vector<Point3d> worldPoints;
 		worldPoints.push_back(Point3d(0.0, 0.0, 0.0));
-		worldPoints.push_back(Point3d(2.0, 0.0, 0.0));
-		worldPoints.push_back(Point3d(0.0, 2.0, 0.0));
-		worldPoints.push_back(Point3d(0.0, 0.0, 2.0));
+		worldPoints.push_back(Point3d(1.0, 0.0, 0.0));
+		worldPoints.push_back(Point3d(0.0, 1.0, 0.0));
+		worldPoints.push_back(Point3d(0.0, 0.0, 1.0));
 
 		vector<Point2d> imagePoints;
 
@@ -500,56 +499,58 @@ int main(void)
 
 		for (int i = 0; i < imagePoints.size(); i++)
 		{
-			arrowedLine(imgCuboids, imagePoints[0], imagePoints[1], Scalar(255.0, 0.0, 0.0), 1, CV_AA);
-			arrowedLine(imgCuboids, imagePoints[0], imagePoints[2], Scalar(0.0, 255.0, 0.0), 1, CV_AA);
-			arrowedLine(imgCuboids, imagePoints[0], imagePoints[3], Scalar(0.0, 0.0, 255.0), 1, CV_AA);
+			arrowedLine(imgCuboids, imagePoints[0], imagePoints[1], BLUE, 1, CV_AA);
+			arrowedLine(imgCuboids, imagePoints[0], imagePoints[2], GREEN, 1, CV_AA);
+			arrowedLine(imgCuboids, imagePoints[0], imagePoints[3], RED, 1, CV_AA);
 
 		}
 
 		current_position = capture.get(CV_CAP_PROP_POS_MSEC) / 1000;
 
-		rectangle(imgTracks, Point(8, 20), Point(120, 35), Scalar(0, 0, 0), -1, CV_AA);
-		putText(imgTracks, "Frame Count: " + to_string(frame_count), Point(10, 30), CV_FONT_HERSHEY_SIMPLEX, 0.35, Scalar(255, 255, 255), 0.35, CV_AA);
+		rectangle(imgTracks, Point(8, 20), Point(120, 35), SAFFRON, -1, CV_AA);
+		putText(imgTracks, "Frame Count: " + to_string(frame_count), Point(10, 30), CV_FONT_HERSHEY_SIMPLEX, 0.35, iBLUE, 0.35, CV_AA);
 
-		rectangle(imgTracks, Point(8, 40), Point(120, 55), Scalar(0, 0, 0), -1, CV_AA);
-		putText(imgTracks, "Vehicle Count: " + to_string(trackCount), Point(10, 50), CV_FONT_HERSHEY_SIMPLEX, 0.35, Scalar(255, 255, 255), 0.35, CV_AA);
+		rectangle(imgTracks, Point(8, 40), Point(120, 55), WHITE, -1, CV_AA);
+		putText(imgTracks, "Vehicle Count: " + to_string(trackCount), Point(10, 50), CV_FONT_HERSHEY_SIMPLEX, 0.35, iBLUE, 0.35, CV_AA);
 
-		rectangle(imgTracks, Point(8, 60), Point(120, 75), Scalar(0, 0, 0), -1, CV_AA);
-		putText(imgTracks, "Being Tracked: " + to_string(tracks.size()), Point(10, 70), CV_FONT_HERSHEY_SIMPLEX, 0.35, Scalar(255, 255, 255), 0.35, CV_AA);
+		rectangle(imgTracks, Point(8, 60), Point(120, 75), iGREEN, -1, CV_AA);
+		putText(imgTracks, "Being Tracked: " + to_string(tracks.size()), Point(10, 70), CV_FONT_HERSHEY_SIMPLEX, 0.35, iBLUE, 0.35, CV_AA);
 
 
-		rectangle(imgCuboids, Point(8, 20), Point(120, 35), Scalar(0, 0, 0), -1, CV_AA);
-		putText(imgCuboids, "Frame Count: " + to_string(frame_count), Point(10, 30), CV_FONT_HERSHEY_SIMPLEX, 0.35, Scalar(255, 255, 255), 0.35, CV_AA);
+		rectangle(imgCuboids, Point(8, 20), Point(120, 35), SAFFRON, -1, CV_AA);
+		putText(imgCuboids, "Frame Count: " + to_string(frame_count), Point(10, 30), CV_FONT_HERSHEY_SIMPLEX, 0.35, iBLUE, 0.35, CV_AA);
 
-		rectangle(imgCuboids, Point(8, 40), Point(120, 55), Scalar(0, 0, 0), -1, CV_AA);
-		putText(imgCuboids, "Vehicle Count: " + to_string(trackCount), Point(10, 50), CV_FONT_HERSHEY_SIMPLEX, 0.35, Scalar(255, 255, 255), 0.35, CV_AA);
+		rectangle(imgCuboids, Point(8, 40), Point(120, 55), WHITE, -1, CV_AA);
+		putText(imgCuboids, "Vehicle Count: " + to_string(trackCount), Point(10, 50), CV_FONT_HERSHEY_SIMPLEX, 0.35, iBLUE, 0.35, CV_AA);
 
-		rectangle(imgCuboids, Point(8, 60), Point(120, 75), Scalar(0, 0, 0), -1, CV_AA);
-		putText(imgCuboids, "Being Tracked: " + to_string(tracks.size()), Point(10, 70), CV_FONT_HERSHEY_SIMPLEX, 0.35, Scalar(255, 255, 255), 0.35, CV_AA);
-
-		
-
-		line(imgTracks, Point(314, 0), Point(178, 424), Scalar(0, 0, 255), 1, CV_AA);
-		line(imgTracks, Point(357, 0), Point(544, 424), Scalar(0, 0, 255), 1, CV_AA);
-		line(imgTracks, Point(338, 0), Point(360, 424), Scalar(255, 0, 0), 0.5, CV_AA);
-
-		line(imgCuboids, Point(314, 0), Point(178, 424), Scalar(0, 0, 255), 1, CV_AA);
-		line(imgCuboids, Point(357, 0), Point(544, 424), Scalar(0, 0, 255), 1, CV_AA);
-		line(imgCuboids, Point(338, 0), Point(360, 424), Scalar(255, 0, 0), 0.5, CV_AA);
+		rectangle(imgCuboids, Point(8, 60), Point(120, 75), iGREEN, -1, CV_AA);
+		putText(imgCuboids, "Being Tracked: " + to_string(tracks.size()), Point(10, 70), CV_FONT_HERSHEY_SIMPLEX, 0.35, iBLUE, 0.35, CV_AA);
 
 		
 
-		rectangle(imgTracks, Point((imgTracks.cols * 2 / 3) - 10, 0), Point(imgTracks.cols, 14), Scalar(0, 0, 0), -1, CV_AA);
+		line(imgTracks, Point(314, 0), Point(178, 424), YELLOW, 1, CV_AA);
+		line(imgTracks, Point(357, 0), Point(544, 424), YELLOW, 1, CV_AA);
+		line(imgTracks, Point(338, 0), Point(360, 424), YELLOW, 1, CV_AA);
 
-		putText(imgTracks, "Vehicle Detection and Tracking", Point((imgCuboids.cols * 2 / 3) - 5, 10), CV_FONT_HERSHEY_SIMPLEX, 0.35, Scalar(255, 255, 255), 0.35, CV_AA);
+		line(imgCuboids, Point(314, 0), Point(178, 424), YELLOW, 1, CV_AA);
+		line(imgCuboids, Point(357, 0), Point(544, 424), YELLOW, 1, CV_AA);
+		line(imgCuboids, Point(338, 0), Point(360, 424), YELLOW, 1, CV_AA);
+	
+		line(imgTracks, Point(0, 342), Point(296, 0), RED, 2, CV_AA);
+		line(imgCuboids, Point(0, 342), Point(296, 0), RED, 2, CV_AA);
 
-		putText(imgTracks, "Vehicle Speed Estimation Using Optical Flow And 3D Modeling by Indrajeet Datta", Point(5, imgTracks.rows - 10), CV_FONT_HERSHEY_SIMPLEX, 0.3, Scalar(255, 255, 255), 0.35, CV_AA);
 
-		rectangle(imgCuboids, Point((imgCuboids.cols * 2 / 3) - 10, 0), Point(imgCuboids.cols, 14), Scalar(0, 0, 0), -1, CV_AA);
+		rectangle(imgTracks, Point((imgTracks.cols * 2 / 3) - 10, 0), Point(imgTracks.cols, 14), iBLUE, -1, CV_AA);
 
-		putText(imgCuboids, "Cuboid Estimation of Tracked Vehicles", Point((imgCuboids.cols * 2 / 3) - 5, 10), CV_FONT_HERSHEY_SIMPLEX, 0.35, Scalar(255, 255, 255), 0.35, CV_AA);
+		putText(imgTracks, "Vehicle Detection and Tracking", Point((imgCuboids.cols * 2 / 3) - 5, 10), CV_FONT_HERSHEY_SIMPLEX, 0.35, WHITE, 0.35, CV_AA);
 
-		putText(imgCuboids, "Vehicle Speed Estimation Using Optical Flow And 3D Modeling by Indrajeet Datta", Point(5, imgCuboids.rows - 10), CV_FONT_HERSHEY_SIMPLEX, 0.3, Scalar(255, 255, 255), 0.35, CV_AA);
+		putText(imgTracks, "Vehicle Speed Estimation Using Optical Flow And 3D Modeling by Indrajeet Datta", Point(5, imgTracks.rows - 10), CV_FONT_HERSHEY_SIMPLEX, 0.3, WHITE, 0.35, CV_AA);
+
+		rectangle(imgCuboids, Point((imgCuboids.cols * 2 / 3) - 10, 0), Point(imgCuboids.cols, 14), iBLUE, -1, CV_AA);
+
+		putText(imgCuboids, "Cuboid Estimation of Tracked Vehicles", Point((imgCuboids.cols * 2 / 3) - 5, 10), CV_FONT_HERSHEY_SIMPLEX, 0.35, WHITE, 0.35, CV_AA);
+
+		putText(imgCuboids, "Vehicle Speed Estimation Using Optical Flow And 3D Modeling by Indrajeet Datta", Point(5, imgCuboids.rows - 10), CV_FONT_HERSHEY_SIMPLEX, 0.3, WHITE, 0.35, CV_AA);
 
 		
 		namedWindow("Tracking");
