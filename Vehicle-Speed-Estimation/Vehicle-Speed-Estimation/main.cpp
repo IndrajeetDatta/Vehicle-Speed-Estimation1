@@ -507,24 +507,24 @@ int main(void)
 
 		current_position = capture.get(CV_CAP_PROP_POS_MSEC) / 1000;
 
-		rectangle(imgTracks, Point(8, 20), Point(120, 35), SAFFRON, -1, CV_AA);
-		putText(imgTracks, "Frame Count: " + to_string(frame_count), Point(10, 30), CV_FONT_HERSHEY_SIMPLEX, 0.35, iBLUE, 0.35, CV_AA);
+		rectangle(imgTracks, Point(8, 20), Point(120, 35), BLACK, -1, CV_AA);
+		putText(imgTracks, "Frame Count: " + to_string(frame_count), Point(10, 30), CV_FONT_HERSHEY_SIMPLEX, 0.35, GREEN, 0.35, CV_AA);
 
-		rectangle(imgTracks, Point(8, 40), Point(120, 55), WHITE, -1, CV_AA);
-		putText(imgTracks, "Vehicle Count: " + to_string(trackCount), Point(10, 50), CV_FONT_HERSHEY_SIMPLEX, 0.35, iBLUE, 0.35, CV_AA);
+		rectangle(imgTracks, Point(8, 40), Point(120, 55), BLACK, -1, CV_AA);
+		putText(imgTracks, "Vehicle Count: " + to_string(trackCount), Point(10, 50), CV_FONT_HERSHEY_SIMPLEX, 0.35, GREEN, 0.35, CV_AA);
 
-		rectangle(imgTracks, Point(8, 60), Point(120, 75), iGREEN, -1, CV_AA);
-		putText(imgTracks, "Being Tracked: " + to_string(tracks.size()), Point(10, 70), CV_FONT_HERSHEY_SIMPLEX, 0.35, iBLUE, 0.35, CV_AA);
+		rectangle(imgTracks, Point(8, 60), Point(120, 75), BLACK, -1, CV_AA);
+		putText(imgTracks, "Being Tracked: " + to_string(tracks.size()), Point(10, 70), CV_FONT_HERSHEY_SIMPLEX, 0.35, GREEN, 0.35, CV_AA);
 
 
-		rectangle(imgCuboids, Point(8, 20), Point(120, 35), SAFFRON, -1, CV_AA);
-		putText(imgCuboids, "Frame Count: " + to_string(frame_count), Point(10, 30), CV_FONT_HERSHEY_SIMPLEX, 0.35, iBLUE, 0.35, CV_AA);
+		rectangle(imgCuboids, Point(8, 20), Point(120, 35), BLACK, -1, CV_AA);
+		putText(imgCuboids, "Frame Count: " + to_string(frame_count), Point(10, 30), CV_FONT_HERSHEY_SIMPLEX, 0.35, GREEN, 0.35, CV_AA);
 
-		rectangle(imgCuboids, Point(8, 40), Point(120, 55), WHITE, -1, CV_AA);
-		putText(imgCuboids, "Vehicle Count: " + to_string(trackCount), Point(10, 50), CV_FONT_HERSHEY_SIMPLEX, 0.35, iBLUE, 0.35, CV_AA);
+		rectangle(imgCuboids, Point(8, 40), Point(120, 55), BLACK, -1, CV_AA);
+		putText(imgCuboids, "Vehicle Count: " + to_string(trackCount), Point(10, 50), CV_FONT_HERSHEY_SIMPLEX, 0.35, GREEN, 0.35, CV_AA);
 
-		rectangle(imgCuboids, Point(8, 60), Point(120, 75), iGREEN, -1, CV_AA);
-		putText(imgCuboids, "Being Tracked: " + to_string(tracks.size()), Point(10, 70), CV_FONT_HERSHEY_SIMPLEX, 0.35, iBLUE, 0.35, CV_AA);
+		rectangle(imgCuboids, Point(8, 60), Point(120, 75), BLACK, -1, CV_AA);
+		putText(imgCuboids, "Being Tracked: " + to_string(tracks.size()), Point(10, 70), CV_FONT_HERSHEY_SIMPLEX, 0.35, GREEN, 0.35, CV_AA);
 
 		
 
@@ -540,15 +540,15 @@ int main(void)
 		line(imgCuboids, Point(0, 342), Point(296, 0), RED, 2, CV_AA);
 
 
-		rectangle(imgTracks, Point((imgTracks.cols * 2 / 3) - 10, 0), Point(imgTracks.cols, 14), iBLUE, -1, CV_AA);
+		rectangle(imgTracks, Point((imgTracks.cols * 2 / 3) - 10, 0), Point(imgTracks.cols, 14), BLACK, -1, CV_AA);
 
-		putText(imgTracks, "Vehicle Detection and Tracking", Point((imgCuboids.cols * 2 / 3) - 5, 10), CV_FONT_HERSHEY_SIMPLEX, 0.35, WHITE, 0.35, CV_AA);
+		putText(imgTracks, "Vehicle Detection and Tracking", Point((imgCuboids.cols * 2 / 3) - 5, 10), CV_FONT_HERSHEY_SIMPLEX, 0.35, GREEN, 0.35, CV_AA);
 
 		putText(imgTracks, "Vehicle Speed Estimation Using Optical Flow And 3D Modeling by Indrajeet Datta", Point(5, imgTracks.rows - 10), CV_FONT_HERSHEY_SIMPLEX, 0.3, WHITE, 0.35, CV_AA);
 
-		rectangle(imgCuboids, Point((imgCuboids.cols * 2 / 3) - 10, 0), Point(imgCuboids.cols, 14), iBLUE, -1, CV_AA);
+		rectangle(imgCuboids, Point((imgCuboids.cols * 2 / 3) - 10, 0), Point(imgCuboids.cols, 14), BLACK, -1, CV_AA);
 
-		putText(imgCuboids, "Cuboid Estimation of Tracked Vehicles", Point((imgCuboids.cols * 2 / 3) - 5, 10), CV_FONT_HERSHEY_SIMPLEX, 0.35, WHITE, 0.35, CV_AA);
+		putText(imgCuboids, "Cuboid Estimation of Tracked Vehicles", Point((imgCuboids.cols * 2 / 3) - 5, 10), CV_FONT_HERSHEY_SIMPLEX, 0.35, GREEN, 0.35, CV_AA);
 
 		putText(imgCuboids, "Vehicle Speed Estimation Using Optical Flow And 3D Modeling by Indrajeet Datta", Point(5, imgCuboids.rows - 10), CV_FONT_HERSHEY_SIMPLEX, 0.3, WHITE, 0.35, CV_AA);
 
