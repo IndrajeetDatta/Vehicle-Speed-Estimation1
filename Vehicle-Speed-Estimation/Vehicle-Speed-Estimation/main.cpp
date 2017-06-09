@@ -10,8 +10,9 @@ Mat cameraMatrix, distCoeffs, rotationVector, translationVector, rotationMatrix,
 
 double distanceBetweenPoints(Point2f point1, Point point2);
 double distanceBetweenPoints(Point2f point1, Point2f point2);
-Point3f findWorldPoint(Point2f imagePoint, Mat cameraMatrix, Mat rotationMatrix, Mat translationVector);
+Point3f findWorldPoint(Point2f imagePoint, double zConst, Mat cameraMatrix, Mat rotationMatrix, Mat translationVector);
 
+int trackCount = 0;
 double initialCuboidLength = 5, initialCuboidWidth = 2, initialCuboidHeight = 1.5;
 Scalar WHITE = Scalar(255, 255, 255), BLACK = Scalar(0, 0, 0), BLUE = Scalar(255, 0, 0), GREEN = Scalar(0, 255, 0), RED = Scalar(0, 0, 255), YELLOW = Scalar(0, 255, 255), SAFFRON = Scalar(51, 153, 255), iGREEN = Scalar(8, 136, 19), iBLUE = Scalar(128, 0, 0);
 
@@ -75,7 +76,7 @@ void Blob::findFeatures(Mat currentFrame)
 	this->featurePoints = featurePoints;
 	for (int i = 0; i < this->featurePoints.size(); i++)
 	{
-		Point3f point = findWorldPoint(Point2f(featurePoints[i]), cameraMatrix, rotationMatrix, translationVector);
+		Point3f point = findWorldPoint(Point2f(featurePoints[i]), 0.0, cameraMatrix, rotationMatrix, translationVector);
 		this->groundPlaneFlowTails.push_back(point);
 	}
 
@@ -90,7 +91,7 @@ void Blob::findFlow(Mat currentFrame, Mat nextFrame)
 
 	for (int i = 0; i < featurePoints.size(); i++)
 	{
-		Point3f point = findWorldPoint(Point2f(flowPoints[i]), cameraMatrix, rotationMatrix, translationVector);
+		Point3f point = findWorldPoint(Point2f(flowPoints[i]), 0.0, cameraMatrix, rotationMatrix, translationVector);
 		this->groundPlaneFlowHeads.push_back(point);
 	}
 
@@ -117,7 +118,7 @@ class Cuboid
 public:
 	Blob blob;
 	double cuboidLength, cuboidWidth, cuboidHeight, angleOfMotion;
-	Point3d bottomLeftCorner, centroid, b1, b2, b3, b4, t1, t2, t3, t4;
+	Point3d centroid, b1, b2, b3, b4, t1, t2, t3, t4;
 
 	void setOptimizedCuboidParams(double length, double width, double height, double angleOfMotion);
 	void setBlob(Blob blob);
@@ -138,7 +139,7 @@ Cuboid::Cuboid(Blob blob)
 	this->cuboidHeight = initialCuboidHeight;
 	this->angleOfMotion = this->blob.angleOfMotion;
 
-	Point3f point = findWorldPoint(this->blob.bottomLeftCorner, cameraMatrix, rotationMatrix, translationVector);
+	Point3f point = findWorldPoint(this->blob.bottomLeftCorner, 0.0, cameraMatrix, rotationMatrix, translationVector);
 
 	this->b1 = Point3d(point.x, point.y, 0.0);
 	this->b2 = Point3d(this->b1.x + (this->cuboidWidth * cos(this->angleOfMotion)), this->b1.y - (this->cuboidWidth* sin(this->angleOfMotion)), 0.0);
@@ -232,7 +233,7 @@ void Track::drawTrack(Mat outputFrame)
 	{
 		Blob blob = this->blobs.back();
 		rectangle(outputFrame, blob.topRightCorner, Point(blob.topRightCorner.x + blob.width, blob.topRightCorner.y - blob.diagonalSize / 9), this->trackColor, -1, CV_AA);
-		putText(outputFrame, "Vehicle: " + to_string(this->trackNumber), Point(blob.topRightCorner.x + 3, blob.topRightCorner.y - 3), CV_FONT_HERSHEY_SIMPLEX, blob.width / 250, WHITE, 1, CV_AA);
+		putText(outputFrame, "Vehicle: " + to_string(this->trackNumber), Point(blob.topRightCorner.x + 3, blob.topRightCorner.y - 3), CV_FONT_HERSHEY_SIMPLEX, blob.width / 250, BLACK, 1, CV_AA);
 		rectangle(outputFrame, Point(this->blobs.back().bottomLeftCorner.x + 3, this->blobs.back().bottomLeftCorner.y + 5), Point(this->blobs.back().bottomLeftCorner.x + 35, this->blobs.back().bottomLeftCorner.y + 30), this->trackColor, -1, CV_AA);
 		putText(outputFrame, "x: " + to_string(this->blobs.back().bottomLeftCorner.x), Point2d(this->blobs.back().bottomLeftCorner.x + 5, this->blobs.back().bottomLeftCorner.y + 15), CV_FONT_HERSHEY_SIMPLEX, 0.25, BLACK, 1, CV_AA);
 		putText(outputFrame, "y: " + to_string(this->blobs.back().bottomLeftCorner.y), Point2d(this->blobs.back().bottomLeftCorner.x + 5, this->blobs.back().bottomLeftCorner.y + 25), CV_FONT_HERSHEY_SIMPLEX, 0.25, BLACK, 1, CV_AA);
@@ -285,7 +286,7 @@ void Track::drawCuboid(Mat outputFrame)
 		if (this->matchCount > 5)
 		{
 			circle(outputFrame, imagePoints[9], 10, this->trackColor, -1, CV_AA);
-			putText(outputFrame, to_string(this->trackNumber), Point2d(imagePoints[9].x - 7, imagePoints[9].y + 3), CV_FONT_HERSHEY_SIMPLEX, this->cuboid.cuboidWidth / 6, WHITE, 1, CV_AA);
+			putText(outputFrame, to_string(this->trackNumber), Point2d(imagePoints[9].x - 7, imagePoints[9].y + 3), CV_FONT_HERSHEY_SIMPLEX, this->cuboid.cuboidWidth / 6, BLACK, 1, CV_AA);
 
 		}
 		rectangle(outputFrame, Point(imagePoints[1].x + 3, imagePoints[1].y + 5), Point(imagePoints[1].x + 65, imagePoints[1].y + 50), this->trackColor, -1, CV_AA);
@@ -299,7 +300,6 @@ void Track::drawCuboid(Mat outputFrame)
 
 
 vector<Track> tracks;
-int trackCount = 0;
 void matchBlobs(vector<Blob> &frameBlobs, Mat currentFrame, Mat nextFrame);
 
 vector<Point2f> mouseCallBackPoints;
@@ -472,6 +472,51 @@ int main(void)
 		imgTracks = frame2.clone();
 		imgCuboids = frame2.clone();
 
+		rectangle(imgTracks, Point(8, 20), Point(120, 35), BLACK, -1, CV_AA);
+		putText(imgTracks, "Frame Count: " + to_string(frame_count), Point(10, 30), CV_FONT_HERSHEY_SIMPLEX, 0.35, GREEN, 0.35, CV_AA);
+
+		rectangle(imgTracks, Point(8, 40), Point(120, 55), BLACK, -1, CV_AA);
+		putText(imgTracks, "Vehicle Count: " + to_string(trackCount), Point(10, 50), CV_FONT_HERSHEY_SIMPLEX, 0.35, GREEN, 0.35, CV_AA);
+
+		rectangle(imgTracks, Point(8, 60), Point(120, 75), BLACK, -1, CV_AA);
+		putText(imgTracks, "Being Tracked: " + to_string(tracks.size()), Point(10, 70), CV_FONT_HERSHEY_SIMPLEX, 0.35, GREEN, 0.35, CV_AA);
+
+
+		rectangle(imgCuboids, Point(8, 20), Point(120, 35), BLACK, -1, CV_AA);
+		putText(imgCuboids, "Frame Count: " + to_string(frame_count), Point(10, 30), CV_FONT_HERSHEY_SIMPLEX, 0.35, GREEN, 0.35, CV_AA);
+
+		rectangle(imgCuboids, Point(8, 40), Point(120, 55), BLACK, -1, CV_AA);
+		putText(imgCuboids, "Vehicle Count: " + to_string(trackCount), Point(10, 50), CV_FONT_HERSHEY_SIMPLEX, 0.35, GREEN, 0.35, CV_AA);
+
+		rectangle(imgCuboids, Point(8, 60), Point(120, 75), BLACK, -1, CV_AA);
+		putText(imgCuboids, "Being Tracked: " + to_string(tracks.size()), Point(10, 70), CV_FONT_HERSHEY_SIMPLEX, 0.35, GREEN, 0.35, CV_AA);
+
+
+
+		line(imgTracks, Point(314, 0), Point(178, 424), YELLOW, 1, CV_AA);
+		line(imgTracks, Point(357, 0), Point(544, 424), YELLOW, 1, CV_AA);
+		line(imgTracks, Point(338, 0), Point(360, 424), YELLOW, 1, CV_AA);
+
+		line(imgCuboids, Point(314, 0), Point(178, 424), YELLOW, 1, CV_AA);
+		line(imgCuboids, Point(357, 0), Point(544, 424), YELLOW, 1, CV_AA);
+		line(imgCuboids, Point(338, 0), Point(360, 424), YELLOW, 1, CV_AA);
+
+		line(imgTracks, Point(0, 342), Point(296, 0), RED, 2, CV_AA);
+		line(imgCuboids, Point(0, 342), Point(296, 0), RED, 2, CV_AA);
+
+
+		rectangle(imgTracks, Point((imgTracks.cols * 2 / 3) - 10, 0), Point(imgTracks.cols, 14), BLACK, -1, CV_AA);
+
+		putText(imgTracks, "Vehicle Detection and Tracking", Point((imgCuboids.cols * 2 / 3) - 5, 10), CV_FONT_HERSHEY_SIMPLEX, 0.35, GREEN, 0.35, CV_AA);
+
+		putText(imgTracks, "Vehicle Speed Estimation Using Optical Flow And 3D Modeling by Indrajeet Datta", Point(5, imgTracks.rows - 10), CV_FONT_HERSHEY_SIMPLEX, 0.3, WHITE, 0.35, CV_AA);
+
+		rectangle(imgCuboids, Point((imgCuboids.cols * 2 / 3) - 10, 0), Point(imgCuboids.cols, 14), BLACK, -1, CV_AA);
+
+		putText(imgCuboids, "Cuboid Estimation of Tracked Vehicles", Point((imgCuboids.cols * 2 / 3) - 5, 10), CV_FONT_HERSHEY_SIMPLEX, 0.35, GREEN, 0.35, CV_AA);
+
+		putText(imgCuboids, "Vehicle Speed Estimation Using Optical Flow And 3D Modeling by Indrajeet Datta", Point(5, imgCuboids.rows - 10), CV_FONT_HERSHEY_SIMPLEX, 0.3, WHITE, 0.35, CV_AA);
+
 		for (int i = 0; i < tracks.size(); i++)
 		{
 			if (tracks[i].noMatchCount < 1 && tracks[i].matchCount > 10)
@@ -507,51 +552,7 @@ int main(void)
 
 		current_position = capture.get(CV_CAP_PROP_POS_MSEC) / 1000;
 
-		rectangle(imgTracks, Point(8, 20), Point(120, 35), BLACK, -1, CV_AA);
-		putText(imgTracks, "Frame Count: " + to_string(frame_count), Point(10, 30), CV_FONT_HERSHEY_SIMPLEX, 0.35, GREEN, 0.35, CV_AA);
-
-		rectangle(imgTracks, Point(8, 40), Point(120, 55), BLACK, -1, CV_AA);
-		putText(imgTracks, "Vehicle Count: " + to_string(trackCount), Point(10, 50), CV_FONT_HERSHEY_SIMPLEX, 0.35, GREEN, 0.35, CV_AA);
-
-		rectangle(imgTracks, Point(8, 60), Point(120, 75), BLACK, -1, CV_AA);
-		putText(imgTracks, "Being Tracked: " + to_string(tracks.size()), Point(10, 70), CV_FONT_HERSHEY_SIMPLEX, 0.35, GREEN, 0.35, CV_AA);
-
-
-		rectangle(imgCuboids, Point(8, 20), Point(120, 35), BLACK, -1, CV_AA);
-		putText(imgCuboids, "Frame Count: " + to_string(frame_count), Point(10, 30), CV_FONT_HERSHEY_SIMPLEX, 0.35, GREEN, 0.35, CV_AA);
-
-		rectangle(imgCuboids, Point(8, 40), Point(120, 55), BLACK, -1, CV_AA);
-		putText(imgCuboids, "Vehicle Count: " + to_string(trackCount), Point(10, 50), CV_FONT_HERSHEY_SIMPLEX, 0.35, GREEN, 0.35, CV_AA);
-
-		rectangle(imgCuboids, Point(8, 60), Point(120, 75), BLACK, -1, CV_AA);
-		putText(imgCuboids, "Being Tracked: " + to_string(tracks.size()), Point(10, 70), CV_FONT_HERSHEY_SIMPLEX, 0.35, GREEN, 0.35, CV_AA);
-
 		
-
-		line(imgTracks, Point(314, 0), Point(178, 424), YELLOW, 1, CV_AA);
-		line(imgTracks, Point(357, 0), Point(544, 424), YELLOW, 1, CV_AA);
-		line(imgTracks, Point(338, 0), Point(360, 424), YELLOW, 1, CV_AA);
-
-		line(imgCuboids, Point(314, 0), Point(178, 424), YELLOW, 1, CV_AA);
-		line(imgCuboids, Point(357, 0), Point(544, 424), YELLOW, 1, CV_AA);
-		line(imgCuboids, Point(338, 0), Point(360, 424), YELLOW, 1, CV_AA);
-	
-		line(imgTracks, Point(0, 342), Point(296, 0), RED, 2, CV_AA);
-		line(imgCuboids, Point(0, 342), Point(296, 0), RED, 2, CV_AA);
-
-
-		rectangle(imgTracks, Point((imgTracks.cols * 2 / 3) - 10, 0), Point(imgTracks.cols, 14), BLACK, -1, CV_AA);
-
-		putText(imgTracks, "Vehicle Detection and Tracking", Point((imgCuboids.cols * 2 / 3) - 5, 10), CV_FONT_HERSHEY_SIMPLEX, 0.35, GREEN, 0.35, CV_AA);
-
-		putText(imgTracks, "Vehicle Speed Estimation Using Optical Flow And 3D Modeling by Indrajeet Datta", Point(5, imgTracks.rows - 10), CV_FONT_HERSHEY_SIMPLEX, 0.3, WHITE, 0.35, CV_AA);
-
-		rectangle(imgCuboids, Point((imgCuboids.cols * 2 / 3) - 10, 0), Point(imgCuboids.cols, 14), BLACK, -1, CV_AA);
-
-		putText(imgCuboids, "Cuboid Estimation of Tracked Vehicles", Point((imgCuboids.cols * 2 / 3) - 5, 10), CV_FONT_HERSHEY_SIMPLEX, 0.35, GREEN, 0.35, CV_AA);
-
-		putText(imgCuboids, "Vehicle Speed Estimation Using Optical Flow And 3D Modeling by Indrajeet Datta", Point(5, imgCuboids.rows - 10), CV_FONT_HERSHEY_SIMPLEX, 0.3, WHITE, 0.35, CV_AA);
-
 		
 		namedWindow("Tracking");
 		moveWindow("Tracking", 0, 0);
@@ -653,17 +654,18 @@ void matchBlobs(vector<Blob> &frameBlobs, Mat currentFrame, Mat nextFrame)
 	}
 }
 ////////////////////////////// ~~ METHOD FOR CALCULATING 3D POINT FROM 2D POINT ~~  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-Point3f findWorldPoint(Point2f imagePoint, Mat cameraMatrix, Mat rotationMatrix, Mat translationVector)
+Point3f findWorldPoint(Point2f imagePoint, double zConst, Mat cameraMatrix, Mat rotationMatrix, Mat translationVector)
 {
 	Mat imagePointHV = Mat::ones(3, 1, cv::DataType<double>::type);
 	imagePointHV.at<double>(0, 0) = imagePoint.x;
 	imagePointHV.at<double>(1, 0) = imagePoint.y;
-	Mat tempMat, tempMat2;
+	Mat A, B;
 	double s;
-	tempMat = rotationMatrix.inv() * cameraMatrix.inv() * imagePointHV;
-	tempMat2 = rotationMatrix.inv() * translationVector;
-	s = tempMat2.at<double>(2, 0);
-	s /= tempMat.at<double>(2, 0);
+	A = rotationMatrix.inv() * cameraMatrix.inv() * imagePointHV;
+	B = rotationMatrix.inv() * translationVector;
+	double p = A.at<double>(2, 0);
+	double q = zConst + B.at<double>(2, 0);
+	s = q / p;
 	Mat worldPointHV = rotationMatrix.inv() * (s * cameraMatrix.inv() * imagePointHV - translationVector);
 
 	Point3f worldPoint;
