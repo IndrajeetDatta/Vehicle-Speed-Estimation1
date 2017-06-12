@@ -10,34 +10,42 @@ Mat cameraMatrix, distCoeffs, rotationVector, translationVector, rotationMatrix,
 
 double distanceBetweenPoints(Point2f point1, Point point2);
 double distanceBetweenPoints(Point2f point1, Point2f point2);
+double distancePoint3dZconst(Point3d point1, Point3d point2);
 Point3f findWorldPoint(Point2f imagePoint, double zConst, Mat cameraMatrix, Mat rotationMatrix, Mat translationVector);
-
+double frame_rate;
 int trackCount = 0;
 double initialCuboidLength = 5, initialCuboidWidth = 2, initialCuboidHeight = 1.5;
-Scalar WHITE = Scalar(255, 255, 255), BLACK = Scalar(0, 0, 0), BLUE = Scalar(255, 0, 0), GREEN = Scalar(0, 255, 0), RED = Scalar(0, 0, 255), YELLOW = Scalar(0, 255, 255), SAFFRON = Scalar(51, 153, 255), iGREEN = Scalar(8, 136, 19), iBLUE = Scalar(128, 0, 0);
+Scalar WHITE = Scalar(255, 255, 255), BLACK = Scalar(0, 0, 0), BLUE = Scalar(255, 0, 0), GREEN = Scalar(0, 255, 0), RED = Scalar(0, 0, 255), YELLOW = Scalar(0, 255, 255);
 
 class Blob
 {
 public:
-	vector<Point> contour;
-	Rect Bounding_Rectangle;
-	double area, width, height, diagonalSize, aspectRatio, averageFlowDistanceX, averageFlowDistanceY, angleOfMotion;
-	Point bottomLeftCorner, topRightCorner, bottomRightCorner;
-	Point2d center;
+	Blob(vector<Point>);
+	Blob();
+	~Blob();
 
-	vector<Point2f> featurePoints;
-	vector<Point2f> flowPoints;
-
-	vector<Point3d> groundPlaneFlowTails, groundPlaneFlowHeads;
+	vector<Point> contour; //Vector of Point of the convex hull of the blob
+	Rect Bounding_Rectangle; // Bounding Rectangle of the convex hull of the blob
+	double area; // Area of the bounding rectangle
+	double width; // Width of the bounding rectangle
+	double height; // Height of the bounding rectangle
+	double diagonalSize; // Diagonal size of the bounding rectangle
+	double aspectRatio; // Aspect Ratio of the bounding rectangle
+	double averageFlowDistanceX; // Average of optical flow vector lengths in the X axis
+	double averageFlowDistanceY; // Average of optical flow vector lengths is the Y axis
+	double angleOfMotion; // Angle of the average optical flow vector
+	Point2d center; // Center of the bounding rectangle of the blob with respect to the image coordinates.
+	Point bottomLeftCorner; // Bottom left corner point of the bounding rectangle
+	Point topRightCorner; // Top right corner point of the bounding rectangle
+	Point bottomRightCorner; // Bottom right corner point of the bounding rectangle
+	vector<Point2f> featurePoints; // Vector of points to store the feature points
+	vector<Point2f> flowPoints; // Vector of points to store the optical flow head points
+	vector<Point3d> groundPlaneFlowTails; // Vector of Point3d to store the ground plane coordinates of the tail points of the optical flow vectors
+	vector<Point3d> groundPlaneFlowHeads; // Vector of Point3d to store the ground plane coordinates of the head points of the optical flow vectors 
 
 
 	void findFeatures(Mat);
 	void findFlow(Mat, Mat);
-
-
-	Blob(vector<Point>);
-	Blob();
-	~Blob();
 };
 Blob::Blob() {}
 Blob::~Blob() {}
@@ -116,18 +124,21 @@ void Blob::findFlow(Mat currentFrame, Mat nextFrame)
 class Cuboid
 {
 public:
-	Blob blob;
-	double cuboidLength, cuboidWidth, cuboidHeight, angleOfMotion;
-	Point3d centroid, b1, b2, b3, b4, t1, t2, t3, t4;
-
-	void setOptimizedCuboidParams(double length, double width, double height, double angleOfMotion);
-	void setBlob(Blob blob);
-	void Cuboid::moveCuboid();
-
 	Cuboid(Blob blob);
 	Cuboid();
 	~Cuboid();
 
+	Blob blob; // Stores the corresponding blob of the cuboid
+	double cuboidLength; // Stores the corresponding blob of the cuboid
+	double cuboidWidth; // Stores the width of the cuboid
+	double cuboidHeight; // Stores the height of the cuboid
+	double angleOfMotion; // Stored the angle of motion of the cuboid from the optical flow vectors of the blob
+	Point3d centroid; // Stores the centroid of the cuboid
+	Point3d b1, b2, b3, b4, t1, t2, t3, t4; // Stores the vertices if the cuboid
+
+	void setBlob(Blob blob);
+	void setOptimizedCuboidParams(double length, double width, double height, double angleOfMotion);
+	void Cuboid::moveCuboid();
 };
 Cuboid::Cuboid() {}
 Cuboid::~Cuboid() {}
@@ -194,11 +205,18 @@ public:
 
 	Track(Blob blob);
 	~Track();
-	vector<Blob> blobs;
-	Cuboid cuboid;
-	bool trackUpdated, beingTracked = true;
-	int matchCount = 0, noMatchCount, trackNumber;
-	Scalar trackColor = Scalar(rand() % 255, rand() % 255, rand() % 255);
+
+	vector<Blob> blobs; // A vector of Blob objects that are part of the track
+	Cuboid cuboid; // Cuboid object associated with the vector of Blob objects
+	vector<Point3d> bottomLeftCorners; // A vector that stores all the ground plane bottom-left corner points of the cuboid in the track
+	bool trackUpdated;  // A Boolean variable that stores true if the track is updated
+	bool beingTracked = true; // A Boolean variable that stores true if the track is being tracked
+	int matchCount = 0; // An integer variable which stores the number of consecutive frames in which a matching blob was found
+	int noMatchCount; // An integer variable which stores the number of consecutive frame passed without finding a matching blob.
+	int trackNumber; // An integer variable which stores the track number
+	Scalar trackColor = Scalar(rand() % 255, rand() % 255, rand() % 255); // A scalar variable which takes an arbitrary R, G, B value to give each track a unique color while drawing the track or the cuboids on the image
+
+	double measureSpeed(double fps);
 	void drawTrack(Mat frame);
 	void drawCuboid(Mat);
 
@@ -208,6 +226,7 @@ Track::Track(Blob blob)
 {
 	blobs.push_back(blob);
 	Cuboid cuboid(blob);
+	bottomLeftCorners.push_back(cuboid.b1);
 	this->cuboid = cuboid;
 	this->trackNumber = 0;
 	this->noMatchCount = 0;
@@ -216,6 +235,13 @@ Track::Track(Blob blob)
 };
 Track::~Track() {};
 
+double Track::measureSpeed(double fps)
+{
+	double distance = distancePoint3dZconst(this->bottomLeftCorners.rbegin()[0], this->bottomLeftCorners.rbegin()[1]);
+	double time = (1 / fps);
+	double speed = (distance / time)*3.6;
+	return speed;
+}
 
 void Track::drawTrack(Mat outputFrame)
 {
@@ -233,10 +259,13 @@ void Track::drawTrack(Mat outputFrame)
 	{
 		Blob blob = this->blobs.back();
 		rectangle(outputFrame, blob.topRightCorner, Point(blob.topRightCorner.x + blob.width, blob.topRightCorner.y - blob.diagonalSize / 9), this->trackColor, -1, CV_AA);
-		putText(outputFrame, "Vehicle: " + to_string(this->trackNumber), Point(blob.topRightCorner.x + 3, blob.topRightCorner.y - 3), CV_FONT_HERSHEY_SIMPLEX, blob.width / 250, BLACK, 1, CV_AA);
-		rectangle(outputFrame, Point(this->blobs.back().bottomLeftCorner.x + 3, this->blobs.back().bottomLeftCorner.y + 5), Point(this->blobs.back().bottomLeftCorner.x + 35, this->blobs.back().bottomLeftCorner.y + 30), this->trackColor, -1, CV_AA);
-		putText(outputFrame, "x: " + to_string(this->blobs.back().bottomLeftCorner.x), Point2d(this->blobs.back().bottomLeftCorner.x + 5, this->blobs.back().bottomLeftCorner.y + 15), CV_FONT_HERSHEY_SIMPLEX, 0.25, BLACK, 1, CV_AA);
-		putText(outputFrame, "y: " + to_string(this->blobs.back().bottomLeftCorner.y), Point2d(this->blobs.back().bottomLeftCorner.x + 5, this->blobs.back().bottomLeftCorner.y + 25), CV_FONT_HERSHEY_SIMPLEX, 0.25, BLACK, 1, CV_AA);
+		
+		putText(outputFrame, "Vehicle: " + to_string(this->trackNumber), Point(blob.topRightCorner.x + 3, blob.topRightCorner.y - 3), CV_FONT_HERSHEY_SIMPLEX, blob.width/250, BLACK, 1, CV_AA);
+		
+		rectangle(outputFrame, Point(this->blobs.back().bottomLeftCorner.x + 3, this->blobs.back().bottomLeftCorner.y + 5), Point(this->blobs.back().bottomLeftCorner.x + blob.width/2 + 10, this->blobs.back().bottomLeftCorner.y + 15), this->trackColor, -1, CV_AA);
+		
+		putText(outputFrame, "(" + to_string(this->blobs.back().bottomLeftCorner.x) + ", " + to_string(this->blobs.back().bottomLeftCorner.y)+ ")", Point2d(this->blobs.back().bottomLeftCorner.x + 5, this->blobs.back().bottomLeftCorner.y + 12), CV_FONT_HERSHEY_SIMPLEX, blob.width/350, BLACK, 1, CV_AA);
+	
 	}
 	
 	for (int i = 0; i < this->blobs.back().featurePoints.size(); i++)
@@ -289,11 +318,12 @@ void Track::drawCuboid(Mat outputFrame)
 			putText(outputFrame, to_string(this->trackNumber), Point2d(imagePoints[9].x - 7, imagePoints[9].y + 3), CV_FONT_HERSHEY_SIMPLEX, this->cuboid.cuboidWidth / 6, BLACK, 1, CV_AA);
 
 		}
-		rectangle(outputFrame, Point(imagePoints[1].x + 3, imagePoints[1].y + 5), Point(imagePoints[1].x + 65, imagePoints[1].y + 50), this->trackColor, -1, CV_AA);
+		rectangle(outputFrame, Point(imagePoints[1].x + 3, imagePoints[1].y + 5), Point(imagePoints[1].x + 65, imagePoints[1].y + 60), this->trackColor, -1, CV_AA);
 		putText(outputFrame, "X: " + to_string(this->cuboid.b1.x), Point2d(imagePoints[1].x + 5, imagePoints[1].y + 15), CV_FONT_HERSHEY_SIMPLEX, 0.25, BLACK, 1, CV_AA);
 		putText(outputFrame, "Y: " + to_string(this->cuboid.b1.y), Point2d(imagePoints[1].x + 5, imagePoints[1].y + 25), CV_FONT_HERSHEY_SIMPLEX, 0.25, BLACK, 1, CV_AA);
 		putText(outputFrame, "x: " + to_string(imagePoints[1].x), Point2d(imagePoints[1].x + 5, imagePoints[1].y + 35), CV_FONT_HERSHEY_SIMPLEX, 0.25, BLACK, 1, CV_AA);
 		putText(outputFrame, "y: " + to_string(imagePoints[1].y), Point2d(imagePoints[1].x + 5, imagePoints[1].y + 45), CV_FONT_HERSHEY_SIMPLEX, 0.25, BLACK, 1, CV_AA);
+		putText(outputFrame, "S: " + to_string(measureSpeed(frame_rate)), Point2d(imagePoints[1].x + 5, imagePoints[1].y + 55), CV_FONT_HERSHEY_SIMPLEX, 0.25, BLACK, 1, CV_AA);
 	}
 
 }
@@ -342,7 +372,7 @@ int main(void)
 		return -1;
 	}
 
-	double frame_rate = capture.get(CV_CAP_PROP_FPS);
+	frame_rate = capture.get(CV_CAP_PROP_FPS);
 	double total_frame_count = capture.get(CV_CAP_PROP_FRAME_COUNT);
 	double frame_height = capture.get(CV_CAP_PROP_FRAME_HEIGHT);
 	double frame_width = capture.get(CV_CAP_PROP_FRAME_WIDTH);
@@ -563,6 +593,9 @@ int main(void)
 		setMouseCallback("Cuboids", CallBackFunc);
 		imshow("Cuboids", imgCuboids);
 	
+		/*VideoWriter outputVideo;
+		outputVideo.open("outputVideo.avi", CV_FOURCC('D', 'I', 'V', 'X'), frame_rate, Size(frame_width, frame_height));
+		outputVideo.write(imgCuboids);*/
 
 		frameBlobs.clear();
 
@@ -570,7 +603,7 @@ int main(void)
 		capture.read(frame2);
 
 		
-		key = waitKey(1000 / frame_rate);
+		key = waitKey(0/*1000 / frame_rate*/);
 
 		switch (key)
 		{
@@ -633,6 +666,7 @@ void matchBlobs(vector<Blob> &frameBlobs, Mat currentFrame, Mat nextFrame)
 		{
 			tracks[index_of_least_distance].cuboid.setBlob(tracks[index_of_least_distance].blobs.back());
 			tracks[index_of_least_distance].cuboid.moveCuboid();
+			tracks[index_of_least_distance].bottomLeftCorners.push_back(tracks[index_of_least_distance].cuboid.centroid);
 
 			frameBlobs[i].findFeatures(currentFrame);
 			tracks[index_of_least_distance].blobs.push_back(frameBlobs[i]);
@@ -660,12 +694,11 @@ Point3f findWorldPoint(Point2f imagePoint, double zConst, Mat cameraMatrix, Mat 
 	imagePointHV.at<double>(0, 0) = imagePoint.x;
 	imagePointHV.at<double>(1, 0) = imagePoint.y;
 	Mat A, B;
-	double s;
 	A = rotationMatrix.inv() * cameraMatrix.inv() * imagePointHV;
 	B = rotationMatrix.inv() * translationVector;
 	double p = A.at<double>(2, 0);
 	double q = zConst + B.at<double>(2, 0);
-	s = q / p;
+	double s = q / p;
 	Mat worldPointHV = rotationMatrix.inv() * (s * cameraMatrix.inv() * imagePointHV - translationVector);
 
 	Point3f worldPoint;
@@ -687,7 +720,7 @@ double distanceBetweenPoints(Point2f point1, Point point2)
 }
 
 
-double static distanceBetweenPoints(Point2f point1, Point2f point2)
+double distanceBetweenPoints(Point2f point1, Point2f point2)
 {
 	point1 = (Point)point1;
 	point2 = (Point)point2;
@@ -695,4 +728,12 @@ double static distanceBetweenPoints(Point2f point1, Point2f point2)
 	int intY = abs(point1.y - point2.y);
 
 	return(sqrt(pow(intX, 2) + pow(intY, 2)));
+}
+
+double static distancePoint3dZconst(Point3d point1, Point3d point2)
+{
+	double x = abs(point1.x - point2.x);
+	double y = abs(point1.y - point2.y);
+
+	return(sqrt(pow(x, 2) + pow(y, 2)));
 }
